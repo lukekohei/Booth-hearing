@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ヒアリング">
+<meta name="theme-color" content="#0f5c63">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>ブースヒアリング</title>
+<style>
+:root{
+  --pri:#0f5c63; --pri-d:#0a454a; --pri-l:#e3f1f2;
+  --ink:#1b2328; --sub:#5b6770; --line:#cfd8dc; --bg:#f1f4f5; --card:#fff;
+  --warn:#9a4a00; --warn-bg:#fff1dc; --warn-line:#f0a24a;
+  --dng:#b3261e; --dng-bg:#fdecea; --ok:#1e7d3a;
+  --tA:#c2410c; --tB:#b7791f; --tC:#4a6572;
+  --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  --sal:env(safe-area-inset-left); --sar:env(safe-area-inset-right);
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:17px;line-height:1.45;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",sans-serif;
+  overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer;-webkit-user-select:none;user-select:none;border:0;background:none}
+button:disabled{opacity:.4;cursor:default}
+input,textarea{font:inherit;font-size:18px;color:var(--ink)}
+[hidden]{display:none !important}
+
+/* ---------- ヘッダー ---------- */
+#chrome{position:sticky;top:0;z-index:20}
+#topbar{background:var(--pri);color:#fff;display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;
+  padding:calc(var(--sat) + 8px) calc(var(--sar) + 16px) 8px calc(var(--sal) + 16px)}
+.stat{display:flex;flex-direction:column;justify-content:center;min-height:52px;padding:4px 14px;border-radius:12px;background:rgba(255,255,255,.12);text-align:left}
+.stat .k{font-size:12px;opacity:.85}
+.stat .v{font-size:20px;font-weight:700;line-height:1.2;white-space:nowrap}
+.stat .v small{font-size:13px;font-weight:600;opacity:.9}
+#st-backup{flex:1 1 260px;color:#fff;border:2px solid transparent}
+#st-backup .sub{font-size:13px;opacity:.9}
+#st-backup.warn{background:#ffb020;color:#2b1800;border-color:#fff;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 5px rgba(255,176,32,.45)}}
+#btn-survey{min-height:52px;padding:0 18px;border-radius:12px;background:#fff;color:var(--pri-d);font-weight:700}
+#tabs{display:flex;background:#fff;border-bottom:1px solid var(--line);padding:0 calc(var(--sar) + 8px) 0 calc(var(--sal) + 8px)}
+#tabs button{flex:1;min-height:52px;font-weight:700;color:var(--sub);border-bottom:4px solid transparent;position:relative}
+#tabs button[aria-selected="true"]{color:var(--pri);border-bottom-color:var(--pri)}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:var(--dng);color:#fff;font-size:13px;margin-left:4px;padding:0 6px}
+.count{font-weight:600;color:var(--sub);font-size:14px}
+
+main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(var(--sab) + 110px) calc(var(--sal) + 16px)}
+.banner{border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:15px}
+.banner.warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn)}
+.banner.info{background:var(--pri-l);border:1px solid #9fcbd0;color:var(--pri-d)}
+.banner.dng{background:var(--dng-bg);border:1px solid #efb1ab;color:var(--dng)}
+#edit-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-weight:700}
+#edit-banner button{margin-left:auto}
+
+/* ---------- 入力フォーム ---------- */
+.field{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px 12px;margin-bottom:10px;display:grid;grid-template-columns:1fr;gap:6px}
+.field .label{font-weight:700;font-size:16px;color:var(--pri-d)}
+.field .label small{font-weight:500;color:var(--sub);margin-left:6px;font-size:13px}
+.req{font-style:normal;font-size:12px;background:var(--dng);color:#fff;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.field.missing{border-color:var(--dng);box-shadow:0 0 0 3px var(--dng-bg)}
+@media (min-width:900px){
+  .field{grid-template-columns:168px 1fr;align-items:start;column-gap:14px}
+  .field .label{padding-top:13px}
+  .field .label small{display:block;margin-left:0}
+}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:52px;min-width:92px;padding:6px 16px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:17px;font-weight:600;line-height:1.2}
+.chip[aria-pressed="true"]{background:var(--pri);border-color:var(--pri);color:#fff}
+.chips.multi .chip[aria-pressed="true"]::before{content:"✓ "}
+.chip.legacy{border-style:dashed}
+.chip.legacy::after{content:"（旧）";font-size:12px}
+
+.fid-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+#in-forumId{width:220px;min-height:56px;padding:6px 14px;font-size:28px;font-weight:700;letter-spacing:.08em;border:2px solid var(--line);border-radius:12px;background:#fff;font-variant-numeric:tabular-nums}
+#in-forumId:focus{outline:none;border-color:var(--pri)}
+#in-forumId.bad{border-color:var(--warn-line);background:var(--warn-bg)}
+.keypad{display:grid;grid-template-columns:repeat(10,minmax(44px,1fr)) minmax(52px,1.1fr) minmax(64px,1.4fr);gap:6px;flex:1 1 560px;max-width:760px}
+.keypad button{min-height:56px;border-radius:12px;background:#e9eef0;font-size:24px;font-weight:700}
+.keypad button:active{background:#cfdadd}
+.keypad .k-bs,.keypad .k-clr{font-size:16px;background:#dfe5e8;white-space:nowrap}
+@media (max-width:700px){.keypad{grid-template-columns:repeat(6,1fr)}}
+.fmsg{min-height:20px;font-size:14px;font-weight:600}
+.fmsg.ok{color:var(--ok)} .fmsg.warn{color:var(--warn)} .fmsg.dng{color:var(--dng)}
+
+.temps{display:flex;gap:10px;flex-wrap:wrap}
+.temp{flex:1 1 150px;max-width:230px;min-height:78px;border:3px solid var(--line);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.temp b{font-size:34px;line-height:1}
+.temp span{font-size:13px;color:var(--sub)}
+.temp[data-v="A"] b{color:var(--tA)} .temp[data-v="B"] b{color:var(--tB)} .temp[data-v="C"] b{color:var(--tC)}
+.temp[aria-pressed="true"]{color:#fff}
+.temp[aria-pressed="true"] b,.temp[aria-pressed="true"] span{color:#fff}
+.temp[data-v="A"][aria-pressed="true"]{background:var(--tA);border-color:var(--tA)}
+.temp[data-v="B"][aria-pressed="true"]{background:var(--tB);border-color:var(--tB)}
+.temp[data-v="C"][aria-pressed="true"]{background:var(--tC);border-color:var(--tC)}
+
+.memo-warn{margin:0 0 6px;padding:8px 12px;border-radius:10px;background:var(--dng-bg);color:var(--dng);font-weight:700;font-size:15px}
+#in-memo{width:100%;min-height:92px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;resize:vertical;background:#fff}
+#in-memo:focus{outline:none;border-color:var(--pri)}
+
+/* ---------- 下部アクションバー ---------- */
+#actionbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.97);border-top:1px solid var(--line);
+  display:flex;gap:10px;align-items:center;padding:10px calc(var(--sar) + 16px) calc(var(--sab) + 10px) calc(var(--sal) + 16px)}
+.btn{min-height:56px;padding:0 20px;border-radius:14px;font-weight:700;font-size:17px;background:#e9eef0;color:var(--ink)}
+.btn.pri{background:var(--pri);color:#fff}
+.btn.dng{background:var(--dng);color:#fff}
+.btn.ghost-dng{background:#fff;color:var(--dng);border:2px solid #efb1ab}
+.btn.warn{background:#ffb020;color:#2b1800}
+#btn-save{margin-left:auto;min-width:260px;font-size:21px}
+@media (max-width:700px){#btn-save{min-width:0;flex:1}}
+
+/* ---------- 一覧 ---------- */
+.list-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+#list-q{flex:1 1 240px;min-height:52px;padding:6px 14px;border:2px solid var(--line);border-radius:12px;font-size:20px}
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:92px 1.1fr 56px 1fr 1fr 1.1fr;gap:10px;align-items:center;min-height:60px;padding:8px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;text-align:left;width:100%}
+.row:active{background:var(--pri-l)}
+.row .t{font-variant-numeric:tabular-nums;color:var(--sub);font-size:15px}
+.row .fid{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.row .rid{font-size:13px;color:var(--sub);text-align:right}
+.row .edited{font-size:12px;color:var(--warn);margin-left:4px}
+.tb{display:inline-flex;width:42px;height:42px;border-radius:10px;align-items:center;justify-content:center;font-weight:800;font-size:22px;color:#fff}
+.tb.A{background:var(--tA)} .tb.B{background:var(--tB)} .tb.C{background:var(--tC)}
+@media (max-width:760px){
+  .row{grid-template-columns:74px 1fr 48px 1fr}
+  .row .rel,.row .rid{display:none}
+}
+.empty{padding:40px 10px;text-align:center;color:var(--sub)}
+
+/* ---------- 設定 ---------- */
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.card h2{font-size:18px;margin:0 0 10px;color:var(--pri-d)}
+.card p.note{font-size:14px;color:var(--sub);margin:4px 0 10px}
+.set-grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:900px){.set-grid.cols{grid-template-columns:1fr 1fr 1fr}}
+.set-grid label{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:15px}
+.set-grid label small{font-weight:500;color:var(--sub)}
+.set-grid input[type=text],.set-grid input[type=number],.set-grid input[type=url],.set-grid textarea{min-height:48px;padding:8px 12px;border:2px solid var(--line);border-radius:10px;background:#fff;width:100%}
+.set-grid textarea{min-height:170px;line-height:1.5}
+.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;border:2px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{min-height:48px;padding:0 16px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--pri);color:#fff}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;font-size:15px;margin:0 0 10px}
+.kv dt{color:var(--sub)} .kv dd{margin:0;font-weight:600}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ---------- ダイアログ・トースト ---------- */
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(10,20,25,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+.dlg{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto}
+.dlg h3{margin:0 0 8px;font-size:20px}
+.dlg .msg{white-space:pre-line;margin:0 0 14px;color:#33414a}
+.dlg .dlg-body{margin-bottom:14px}
+.dlg .dlg-body input{width:100%;min-height:52px;padding:8px 14px;border:2px solid var(--line);border-radius:12px;font-size:20px}
+.dlg .dlg-err{color:var(--dng);font-weight:700;font-size:14px;min-height:20px;margin-top:6px}
+.dlg .btns{justify-content:flex-end}
+.dlg .btns .btn{flex:1 1 150px}
+#toast{position:fixed;left:50%;bottom:calc(var(--sab) + 96px);transform:translateX(-50%) translateY(20px);z-index:120;background:#16252b;color:#fff;border-radius:14px;padding:14px 22px;font-weight:700;font-size:17px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="chrome">
+  <header id="topbar">
+    <div class="stat"><span class="k">本日の保存</span><span class="v"><span id="st-today">0</span> <small>件</small></span></div>
+    <div class="stat"><span class="k">この端末</span><span class="v" id="st-device">-</span></div>
+    <button type="button" class="stat" id="st-backup" title="CSV書き出し">
+      <span class="k">最終バックアップ（CSV書き出し）</span>
+      <span class="v" id="st-backup-time">未実施</span>
+      <span class="sub" id="st-backup-sub"></span>
+    </button>
+    <button type="button" id="btn-survey" hidden>アンケートを開く</button>
+  </header>
+  <nav id="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="input" aria-selected="true">入力</button>
+    <button type="button" role="tab" data-tab="list" aria-selected="false">保存済み一覧 <span class="count" id="tab-list-count"></span></button>
+    <button type="button" role="tab" data-tab="settings" aria-selected="false">設定 <span class="badge" id="tab-settings-badge" hidden>!</span></button>
+  </nav>
+</div>
+
+<main>
+  <!-- ================= 入力 ================= -->
+  <section id="view-input" class="view">
+    <div id="standalone-banner" class="banner warn" hidden>ホーム画面のアイコンから起動してください。Safariのタブで開いた場合、データはホーム画面版とは別に保存されます。</div>
+    <div id="edit-banner" class="banner info" hidden>
+      <span>編集中：<span id="edit-id"></span></span>
+      <button type="button" class="btn" id="btn-edit-cancel">編集をやめる</button>
+    </div>
+
+    <div class="field" id="fld-forumId">
+      <div class="label">1. フォーラムID<em class="req">必須</em><small id="fid-hint"></small></div>
+      <div>
+        <div class="fid-row">
+          <input id="in-forumId" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="フォーラムID">
+          <div class="keypad" id="keypad" aria-label="テンキー"></div>
+        </div>
+        <div class="fmsg" id="fid-msg"></div>
+      </div>
+    </div>
+
+    <div class="field" id="fld-staff">
+      <div class="label">2. 対応担当者<em class="req">必須</em></div>
+      <div class="chips" id="grp-staff"></div>
+    </div>
+
+    <div class="field" id="fld-relation">
+      <div class="label">3. 来場者との関係</div>
+      <div class="chips" id="grp-relation"></div>
+    </div>
+
+    <div class="field" id="fld-interests">
+      <div class="label">4. 関心領域<small>複数選択可</small></div>
+      <div class="chips multi" id="grp-interests"></div>
+    </div>
+
+    <div class="field" id="fld-issues">
+      <div class="label">5. 現在の課題<small>複数選択可</small></div>
+      <div class="chips multi" id="grp-issues"></div>
+    </div>
+
+    <div class="field" id="fld-phase">
+      <div class="label">6. 検討フェーズ</div>
+      <div class="chips" id="grp-phase"></div>
+    </div>
+
+    <div class="field" id="fld-nextAction">
+      <div class="label">7. 次アクション</div>
+      <div class="chips" id="grp-nextAction"></div>
+    </div>
+
+    <div class="field" id="fld-temp">
+      <div class="label">8. 温度感<em class="req">必須</em></div>
+      <div class="temps" id="grp-temp"></div>
+    </div>
+
+    <div class="field" id="fld-memo">
+      <div class="label">9. 一言メモ<small>任意・音声入力可</small></div>
+      <div>
+        <p class="memo-warn">⚠ 社名・氏名・機密内容（NDAレベル）は書かないでください</p>
+        <textarea id="in-memo" rows="3" aria-label="一言メモ"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 一覧 ================= -->
+  <section id="view-list" class="view" hidden>
+    <div class="list-tools">
+      <input id="list-q" type="text" inputmode="numeric" placeholder="フォーラムIDで絞り込み" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="フォーラムIDで絞り込み">
+      <button type="button" class="btn" id="btn-list-clear">絞り込み解除</button>
+    </div>
+    <div class="rows" id="rows"></div>
+  </section>
+
+  <!-- ================= 設定 ================= -->
+  <section id="view-settings" class="view" hidden>
+    <div id="set-persist-warn" class="banner dng" hidden></div>
+    <div id="set-standalone-warn" class="banner warn" hidden>現在、ホーム画面のアプリとしてではなくブラウザのタブで開いています。本番ではSafariの共有メニュー →「ホーム画面に追加」で追加したアイコンから起動してください（データの保存場所が別になります）。</div>
+
+    <div class="card">
+      <h2>データ・バックアップ</h2>
+      <dl class="kv">
+        <dt>保存件数</dt><dd id="set-count">0件</dd>
+        <dt>未書き出し</dt><dd id="set-unexported">0件</dd>
+        <dt>最終書き出し</dt><dd id="set-lastexport">未実施</dd>
+      </dl>
+      <div class="btns"><button type="button" class="btn pri" id="btn-export">CSVを書き出す（全件／差分）</button></div>
+    </div>
+
+    <div class="card">
+      <h2>端末ID</h2>
+      <p class="note">端末ごとに重複しない名前にしてください（例：iPad-01, iPad-02）。レコードIDは「端末ID-連番」になります。変更しても保存済みレコードのIDは変わりません。</p>
+      <div class="set-grid"><label>端末ID<input type="text" id="set-device" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label></div>
+      <div class="btns" style="margin-top:10px"><button type="button" class="btn" id="btn-save-device">端末IDを変更</button></div>
+    </div>
+
+    <div class="card">
+      <h2>選択肢</h2>
+      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。</p>
+      <div class="set-grid cols">
+        <label>対応担当者の名簿<textarea id="set-staff"></textarea></label>
+        <label>関心領域<textarea id="set-interests"></textarea></label>
+        <label>現在の課題 <small>5〜8個推奨。「その他」は末尾に自動で付きます</small><textarea id="set-issues"></textarea></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>フォーラムIDの形式</h2>
+      <p class="note">形式に合わない場合は警告を出しますが、保存はできます。</p>
+      <div class="set-grid cols">
+        <label>最小桁数<input type="number" id="set-fid-min" min="1" max="30" inputmode="numeric"></label>
+        <label>最大桁数<input type="number" id="set-fid-max" min="1" max="30" inputmode="numeric"></label>
+        <div><div style="font-weight:700;font-size:15px;margin-bottom:4px">文字の種類</div>
+          <div class="seg" id="set-fid-charset"><button type="button" data-v="digits">数字のみ</button><button type="button" data-v="alnum">英数字</button></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>事務局アンケート</h2>
+      <p class="note">URLを入れると画面上部に「アンケートを開く」ボタンが出ます。空欄なら非表示です。開くには通信が必要です。</p>
+      <div class="set-grid"><label>アンケートURL<input type="url" id="set-survey" placeholder="https://..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label></div>
+    </div>
+
+    <div class="card">
+      <div class="btns">
+        <button type="button" class="btn pri" id="btn-save-settings">設定を保存</button>
+        <button type="button" class="btn" id="btn-reset-settings">選択肢・形式を配信時の初期値に戻す</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ストレージ・アプリ</h2>
+      <dl class="kv">
+        <dt>データ永続化</dt><dd id="set-persist">確認中…</dd>
+        <dt>起動方法</dt><dd id="set-mode">-</dd>
+        <dt>使用量</dt><dd id="set-usage">-</dd>
+        <dt>アプリ版</dt><dd id="set-version">-</dd>
+        <dt>更新</dt><dd id="set-update">-</dd>
+      </dl>
+      <div class="btns">
+        <button type="button" class="btn" id="btn-persist">永続化を再要求</button>
+        <button type="button" class="btn" id="btn-check-update">更新を確認</button>
+        <button type="button" class="btn pri" id="btn-apply-update" hidden>更新して再読み込み</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>全データ削除</h2>
+      <p class="note">この端末の記録をすべて削除します。元に戻せません。必ず先に全件CSVを書き出してください。連番はリセットされません（ID重複防止のため）。</p>
+      <button type="button" class="btn ghost-dng" id="btn-wipe">全データ削除…</button>
+    </div>
+  </section>
+</main>
+
+<footer id="actionbar">
+  <button type="button" class="btn" id="btn-undo">直前の1件を取り消す</button>
+  <button type="button" class="btn ghost-dng" id="btn-delete" hidden>この記録を削除</button>
+  <button type="button" class="btn pri" id="btn-save">保存する</button>
+</footer>
+
+<div id="modal-root"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
