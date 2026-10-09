@@ -19,8 +19,7 @@
   --pri:#0f5c63; --pri-d:#0a454a; --pri-l:#e3f1f2;
   --ink:#1b2328; --sub:#5b6770; --line:#cfd8dc; --bg:#f1f4f5; --card:#fff;
   --warn:#9a4a00; --warn-bg:#fff1dc; --warn-line:#f0a24a;
-  --dng:#b3261e; --dng-bg:#fdecea; --ok:#1e7d3a;
-  --tA:#c2410c; --tB:#b7791f; --tC:#4a6572;
+  --dng:#b3261e; --dng-bg:#fdecea; --ok:#1e7d3a; --hot:#c2410c;
   --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
   --sal:env(safe-area-inset-left); --sar:env(safe-area-inset-right);
   color-scheme: light;
@@ -69,43 +68,48 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .req{font-style:normal;font-size:12px;background:var(--dng);color:#fff;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
 .field.missing{border-color:var(--dng);box-shadow:0 0 0 3px var(--dng-bg)}
 @media (min-width:900px){
-  .field{grid-template-columns:168px 1fr;align-items:start;column-gap:14px}
-  .field .label{padding-top:13px}
-  .field .label small{display:block;margin-left:0}
+  .field:not(.stack){grid-template-columns:180px 1fr;align-items:start;column-gap:14px}
+  .field:not(.stack) .label{padding-top:13px}
+  .field:not(.stack) .label small{display:block;margin-left:0}
 }
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{min-height:52px;min-width:92px;padding:6px 16px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:17px;font-weight:600;line-height:1.2}
+.chip{min-height:52px;min-width:92px;padding:6px 16px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:17px;font-weight:600;line-height:1.25;text-align:center}
 .chip[aria-pressed="true"]{background:var(--pri);border-color:var(--pri);color:#fff}
 .chips.multi .chip[aria-pressed="true"]::before{content:"✓ "}
 .chip.legacy{border-style:dashed}
 .chip.legacy::after{content:"（旧）";font-size:12px}
-
-.fid-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-#in-forumId{width:220px;min-height:56px;padding:6px 14px;font-size:28px;font-weight:700;letter-spacing:.08em;border:2px solid var(--line);border-radius:12px;background:#fff;font-variant-numeric:tabular-nums}
-#in-forumId:focus{outline:none;border-color:var(--pri)}
-#in-forumId.bad{border-color:var(--warn-line);background:var(--warn-bg)}
-.keypad{display:grid;grid-template-columns:repeat(10,minmax(44px,1fr)) minmax(52px,1.1fr) minmax(64px,1.4fr);gap:6px;flex:1 1 560px;max-width:760px}
-.keypad button{min-height:56px;border-radius:12px;background:#e9eef0;font-size:24px;font-weight:700}
-.keypad button:active{background:#cfdadd}
-.keypad .k-bs,.keypad .k-clr{font-size:16px;background:#dfe5e8;white-space:nowrap}
-@media (max-width:700px){.keypad{grid-template-columns:repeat(6,1fr)}}
+.chip.hot{border-color:#f3b08f;color:var(--hot)}
+.chip.hot[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
+.txt{width:100%;min-height:52px;padding:8px 14px;border:2px solid var(--line);border-radius:12px;background:#fff}
+.txt:focus{outline:none;border-color:var(--pri)}
+.hint{margin:6px 0 0;font-size:13px;color:var(--sub)}
+.hint.w{color:var(--dng);font-weight:600}
 .fmsg{min-height:20px;font-size:14px;font-weight:600}
 .fmsg.ok{color:var(--ok)} .fmsg.warn{color:var(--warn)} .fmsg.dng{color:var(--dng)}
 
-.temps{display:flex;gap:10px;flex-wrap:wrap}
-.temp{flex:1 1 150px;max-width:230px;min-height:78px;border:3px solid var(--line);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-.temp b{font-size:34px;line-height:1}
-.temp span{font-size:13px;color:var(--sub)}
-.temp[data-v="A"] b{color:var(--tA)} .temp[data-v="B"] b{color:var(--tB)} .temp[data-v="C"] b{color:var(--tC)}
-.temp[aria-pressed="true"]{color:#fff}
-.temp[aria-pressed="true"] b,.temp[aria-pressed="true"] span{color:#fff}
-.temp[data-v="A"][aria-pressed="true"]{background:var(--tA);border-color:var(--tA)}
-.temp[data-v="B"][aria-pressed="true"]{background:var(--tB);border-color:var(--tB)}
-.temp[data-v="C"][aria-pressed="true"]{background:var(--tC);border-color:var(--tC)}
+/* 来場者ID */
+.vids{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.vid{display:flex;align-items:stretch;border:2px solid var(--pri);border-radius:14px;background:var(--pri-l);overflow:hidden}
+.vid.bad{border-color:var(--warn-line);background:var(--warn-bg)}
+.vid.dup{border-color:var(--dng);background:var(--dng-bg)}
+.vid-main{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:4px 14px;min-height:60px;min-width:130px}
+.vid-main small{font-size:12px;color:var(--sub);font-weight:600}
+.vid-main b{font-size:24px;letter-spacing:.06em;font-variant-numeric:tabular-nums;line-height:1.15}
+.vid-x{min-width:52px;font-size:24px;color:var(--sub);border-left:1px solid rgba(0,0,0,.1)}
+.vid-add{min-height:64px;padding:0 22px;border:2px dashed var(--pri);border-radius:14px;color:var(--pri);font-weight:800;font-size:19px;background:#fff}
+.vid-add.first{background:var(--pri);color:#fff;border-style:solid;min-width:280px}
+
+/* 取引・案件状況 */
+.deal{display:flex;flex-direction:column;gap:8px}
+.deal-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.deal-row .chip{min-width:250px;text-align:left}
+.deal-row .txt{flex:1 1 240px;min-height:52px}
 
 .memo-warn{margin:0 0 6px;padding:8px 12px;border-radius:10px;background:var(--dng-bg);color:var(--dng);font-weight:700;font-size:15px}
-#in-memo{width:100%;min-height:92px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;resize:vertical;background:#fff}
+#in-memo{width:100%;min-height:110px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;resize:vertical;background:#fff}
 #in-memo:focus{outline:none;border-color:var(--pri)}
+.mgmt{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mgmt .txt{width:220px;flex:0 1 220px}
 
 /* ---------- 下部アクションバー ---------- */
 #actionbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.97);border-top:1px solid var(--line);
@@ -122,17 +126,19 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .list-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 #list-q{flex:1 1 240px;min-height:52px;padding:6px 14px;border:2px solid var(--line);border-radius:12px;font-size:20px}
 .rows{display:flex;flex-direction:column;gap:6px}
-.row{display:grid;grid-template-columns:92px 1.1fr 56px 1fr 1fr 1.1fr;gap:10px;align-items:center;min-height:60px;padding:8px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;text-align:left;width:100%}
+.row{display:grid;grid-template-columns:92px 1.4fr 1fr 1.4fr 1fr;gap:10px;align-items:center;min-height:60px;padding:8px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;text-align:left;width:100%}
 .row:active{background:var(--pri-l)}
+.row.hot{border-left:6px solid var(--hot)}
 .row .t{font-variant-numeric:tabular-nums;color:var(--sub);font-size:15px}
-.row .fid{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.row .fid{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.row .fid small{font-size:13px;color:var(--sub);font-weight:600;margin-left:4px}
+.row .sub{font-size:14px;color:#33414a}
 .row .rid{font-size:13px;color:var(--sub);text-align:right}
 .row .edited{font-size:12px;color:var(--warn);margin-left:4px}
-.tb{display:inline-flex;width:42px;height:42px;border-radius:10px;align-items:center;justify-content:center;font-weight:800;font-size:22px;color:#fff}
-.tb.A{background:var(--tA)} .tb.B{background:var(--tB)} .tb.C{background:var(--tC)}
+.hotb{display:inline-block;background:var(--hot);color:#fff;font-size:12px;font-weight:800;border-radius:6px;padding:1px 6px;margin-right:6px}
 @media (max-width:760px){
-  .row{grid-template-columns:74px 1fr 48px 1fr}
-  .row .rel,.row .rid{display:none}
+  .row{grid-template-columns:70px 1fr 1fr}
+  .row .act,.row .rid{display:none}
 }
 .empty{padding:40px 10px;text-align:center;color:var(--sub)}
 
@@ -145,8 +151,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .set-grid label{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:15px}
 .set-grid label small{font-weight:500;color:var(--sub)}
 .set-grid input[type=text],.set-grid input[type=number],.set-grid input[type=url],.set-grid textarea{min-height:48px;padding:8px 12px;border:2px solid var(--line);border-radius:10px;background:#fff;width:100%}
-.set-grid textarea{min-height:170px;line-height:1.5}
-.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.set-grid textarea{min-height:190px;line-height:1.5;font-size:16px}
 .seg{display:inline-flex;border:2px solid var(--line);border-radius:12px;overflow:hidden}
 .seg button{min-height:48px;padding:0 16px;font-weight:600}
 .seg button[aria-pressed="true"]{background:var(--pri);color:#fff}
@@ -154,9 +159,9 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .kv dt{color:var(--sub)} .kv dd{margin:0;font-weight:600}
 .btns{display:flex;gap:10px;flex-wrap:wrap}
 
-/* ---------- ダイアログ・トースト ---------- */
+/* ---------- ダイアログ・テンキー・トースト ---------- */
 .overlay{position:fixed;inset:0;z-index:100;background:rgba(10,20,25,.5);display:flex;align-items:center;justify-content:center;padding:20px}
-.dlg{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto}
+.dlg{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:92vh;overflow:auto}
 .dlg h3{margin:0 0 8px;font-size:20px}
 .dlg .msg{white-space:pre-line;margin:0 0 14px;color:#33414a}
 .dlg .dlg-body{margin-bottom:14px}
@@ -164,6 +169,20 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .dlg .dlg-err{color:var(--dng);font-weight:700;font-size:14px;min-height:20px;margin-top:6px}
 .dlg .btns{justify-content:flex-end}
 .dlg .btns .btn{flex:1 1 150px}
+.pad{max-width:500px;padding:18px}
+.pad h3{text-align:center}
+.pad-disp{width:100%;min-height:72px;text-align:center;font-size:40px;font-weight:800;letter-spacing:.12em;border:3px solid var(--pri);border-radius:14px;background:var(--pri-l);font-variant-numeric:tabular-nums;color:var(--ink)}
+.pad-disp:focus{outline:none}
+.pad .fmsg{text-align:center;margin:6px 0 4px}
+.pad-added{text-align:center;font-size:14px;color:var(--sub);min-height:20px;margin-bottom:6px}
+.pad-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 14px}
+.pad-keys button{min-height:72px;border-radius:14px;background:#e9eef0;font-size:32px;font-weight:700}
+.pad-keys button:active{background:#c9d6da}
+.pad-keys .fn{font-size:18px;background:#dfe5e8}
+.pad .btns{flex-wrap:nowrap}
+.pad .btns .btn{flex:1 1 0;min-height:60px;padding:0 10px;white-space:nowrap;font-size:16px}
+.pad .btns .btn.pri{flex:1.2 1 0;font-size:19px}
+@media (max-height:700px){.pad-keys button{min-height:56px}.pad-disp{min-height:60px;font-size:32px}}
 #toast{position:fixed;left:50%;bottom:calc(var(--sab) + 96px);transform:translateX(-50%) translateY(20px);z-index:120;background:#16252b;color:#fff;border-radius:14px;padding:14px 22px;font-weight:700;font-size:17px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
@@ -171,7 +190,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 <body>
 <div id="chrome">
   <header id="topbar">
-    <div class="stat"><span class="k">本日の保存</span><span class="v"><span id="st-today">0</span> <small>件</small></span></div>
+    <div class="stat"><span class="k">本日の保存</span><span class="v"><span id="st-today">0</span> <small>件</small> <span id="st-today-p">0</span> <small>名</small></span></div>
     <div class="stat"><span class="k">この端末</span><span class="v" id="st-device">-</span></div>
     <button type="button" class="stat" id="st-backup" title="CSV書き出し">
       <span class="k">最終バックアップ（CSV書き出し）</span>
@@ -196,65 +215,81 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
       <button type="button" class="btn" id="btn-edit-cancel">編集をやめる</button>
     </div>
 
-    <div class="field" id="fld-forumId">
-      <div class="label">1. フォーラムID<em class="req">必須</em><small id="fid-hint"></small></div>
+    <div class="field" id="fld-visitorIds">
+      <div class="label">来場者ID<em class="req">必須</em><small id="vid-hint"></small></div>
       <div>
-        <div class="fid-row">
-          <input id="in-forumId" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="フォーラムID">
-          <div class="keypad" id="keypad" aria-label="テンキー"></div>
-        </div>
-        <div class="fmsg" id="fid-msg"></div>
+        <div class="vids" id="vids"></div>
+        <div class="fmsg" id="vid-msg"></div>
       </div>
     </div>
 
-    <div class="field" id="fld-staff">
-      <div class="label">2. 対応担当者<em class="req">必須</em></div>
+    <div class="field" id="fld-staff" hidden>
+      <div class="label">対応担当者</div>
       <div class="chips" id="grp-staff"></div>
     </div>
 
-    <div class="field" id="fld-relation">
-      <div class="label">3. 来場者との関係</div>
-      <div class="chips" id="grp-relation"></div>
+    <div class="field" id="fld-purpose">
+      <div class="label">1. 来場目的<small>1つ選択</small></div>
+      <div class="chips" id="grp-purpose"></div>
     </div>
 
-    <div class="field" id="fld-interests">
-      <div class="label">4. 関心領域<small>複数選択可</small></div>
-      <div class="chips multi" id="grp-interests"></div>
+    <div class="field" id="fld-role">
+      <div class="label">2. お客様の立場<small>1つ選択</small></div>
+      <div class="chips" id="grp-role"></div>
     </div>
 
-    <div class="field" id="fld-issues">
-      <div class="label">5. 現在の課題<small>複数選択可</small></div>
-      <div class="chips multi" id="grp-issues"></div>
+    <div class="field" id="fld-deal">
+      <div class="label">3-1. 取引・案件状況<small>複数選択可</small></div>
+      <div>
+        <div class="deal" id="grp-deal"></div>
+        <p class="hint w">商材名・案件名のみ記入。案件の具体的な内容や他社の社名は書かないでください</p>
+      </div>
     </div>
 
-    <div class="field" id="fld-phase">
-      <div class="label">6. 検討フェーズ</div>
-      <div class="chips" id="grp-phase"></div>
+    <div class="field" id="fld-ctcContact">
+      <div class="label">3-2. CTC社内担当部署・担当者<small>自由記入</small></div>
+      <div>
+        <input type="text" id="in-ctcContact" class="txt" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="部署名・担当者名" aria-label="CTC社内担当部署・担当者">
+        <p class="hint">CTC側の部署・担当者のみ（お客様の社名・氏名は書かない）</p>
+      </div>
     </div>
 
-    <div class="field" id="fld-nextAction">
-      <div class="label">7. 次アクション</div>
-      <div class="chips" id="grp-nextAction"></div>
-    </div>
-
-    <div class="field" id="fld-temp">
-      <div class="label">8. 温度感<em class="req">必須</em></div>
-      <div class="temps" id="grp-temp"></div>
+    <div class="field" id="fld-themes">
+      <div class="label">4. 関心テーマ<small>複数選択可・当てはまらない場合は会話メモへ</small></div>
+      <div class="chips multi" id="grp-themes"></div>
     </div>
 
     <div class="field" id="fld-memo">
-      <div class="label">9. 一言メモ<small>任意・音声入力可</small></div>
+      <div class="label">会話メモ<small>課題・要望・次のアクションを簡潔に</small></div>
       <div>
         <p class="memo-warn">⚠ 社名・氏名・機密内容（NDAレベル）は書かないでください</p>
-        <textarea id="in-memo" rows="3" aria-label="一言メモ"></textarea>
+        <textarea id="in-memo" rows="3" aria-label="会話メモ"></textarea>
       </div>
+    </div>
+
+    <div class="field" id="fld-actions">
+      <div class="label">5. CTCが今後取るべき対応<small>複数選択可</small></div>
+      <div class="chips multi" id="grp-actions"></div>
+    </div>
+
+    <div class="field" id="fld-mgmtNo">
+      <div class="label">6. 管理番号<small>任意・ブースの通し番号など</small></div>
+      <div class="mgmt">
+        <input type="text" id="in-mgmtNo" class="txt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="管理番号">
+        <button type="button" class="btn" id="btn-mgmt-next" hidden></button>
+      </div>
+    </div>
+
+    <div class="field stack" id="fld-itIssue">
+      <div class="label">7. 現在、社内のITにまつわるサポートで最も課題と感じていることは何ですか？<small>1つ選択</small></div>
+      <div class="chips" id="grp-itIssue"></div>
     </div>
   </section>
 
   <!-- ================= 一覧 ================= -->
   <section id="view-list" class="view" hidden>
     <div class="list-tools">
-      <input id="list-q" type="text" inputmode="numeric" placeholder="フォーラムIDで絞り込み" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="フォーラムIDで絞り込み">
+      <input id="list-q" type="text" inputmode="numeric" placeholder="来場者ID・管理番号で絞り込み" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="来場者ID・管理番号で絞り込み">
       <button type="button" class="btn" id="btn-list-clear">絞り込み解除</button>
     </div>
     <div class="rows" id="rows"></div>
@@ -284,16 +319,12 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 
     <div class="card">
       <h2>選択肢</h2>
-      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。</p>
-      <div class="set-grid cols">
-        <label>対応担当者の名簿<textarea id="set-staff"></textarea></label>
-        <label>関心領域<textarea id="set-interests"></textarea></label>
-        <label>現在の課題 <small>5〜8個推奨。「その他」は末尾に自動で付きます</small><textarea id="set-issues"></textarea></label>
-      </div>
+      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。「3-1. 取引・案件状況」の選択肢は固定です。</p>
+      <div class="set-grid cols" id="set-lists"></div>
     </div>
 
     <div class="card">
-      <h2>フォーラムIDの形式</h2>
+      <h2>来場者IDの形式</h2>
       <p class="note">形式に合わない場合は警告を出しますが、保存はできます。</p>
       <div class="set-grid cols">
         <label>最小桁数<input type="number" id="set-fid-min" min="1" max="30" inputmode="numeric"></label>

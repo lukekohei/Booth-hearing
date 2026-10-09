@@ -4,47 +4,87 @@
  */
 'use strict';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '2.0.0';
 
 /* =====================================================================
- * 配信時の初期設定（仮の値）
+ * 配信時の初期設定（確定版の質問項目）
  * ここを書き換えて配信し直すと、全端末の「初期値」が変わる。
  * ※端末の設定画面で変更済みの項目は端末側の値が優先される
  *   （設定画面「配信時の初期値に戻す」で、ここの値に戻せる）。
  * ※変更して配信するときは sw.js の VERSION も必ず上げること。
  * ===================================================================== */
 const DEFAULT_CONFIG = {
-  staff: ['担当A', '担当B', '担当C', '担当D', '担当E'],
-  interests: ['テーマ1', 'テーマ2', 'テーマ3', 'テーマ4', 'テーマ5'],
-  issues: ['課題1', '課題2', '課題3', '課題4', '課題5', '課題6'], // 「その他」は自動で末尾に付く
-  forumId: { minLen: 6, maxLen: 6, charset: 'digits' },           // charset: 'digits' | 'alnum'
-  surveyUrl: ''                                                    // 事務局アンケートURL（空なら非表示）
-};
-
-/* 仕様で固定の選択肢（変える場合はここを編集） */
-const FIXED = {
-  relations: ['既存取引先', 'グループ社員', 'パートナー', '新規'],
-  phases: ['情報収集', '検討中', '具体案件あり'],
-  nextActions: ['資料送付', '商談希望', 'デモ希望', '不要'],
-  temps: [
-    { v: 'A', hint: '前向き・早期フォロー' },
-    { v: 'B', hint: '関心あり' },
-    { v: 'C', hint: '情報収集程度' }
+  staff: [], // 対応担当者の名簿（空なら入力欄を表示しない）
+  purpose: ['情報収集', '課題解決', '導入検討', '挨拶'],
+  role: ['決裁権あり', '選定担当', '現場実務', 'その他'],
+  themes: [
+    'AI FinOps・トークンコスト最適化',
+    'AI基盤／GPU',
+    'AI駆動開発',
+    'ガバナンス',
+    'エージェントAI',
+    'コンサル・育成',
+    'AIサービスデスク・生成AI活用',
+    'IT運用BPO・ヘルプデスク運営',
+    'ナレッジ整備・FAQ・RAG構築',
+    '課題整理・アセスメント'
   ],
-  otherLabel: 'その他',
-  backupWarnMs: 2 * 60 * 60 * 1000
+  actions: [
+    '訪問・提案',
+    '資料送付',
+    '御礼メールのみ',
+    '早期フォロー要（ホットリード）',
+    '個別相談したい',
+    '会社紹介や事例紹介をしてほしい',
+    '会社紹介や導入事例の資料が欲しい'
+  ],
+  itIssue: [
+    '問い合わせ対応の負荷が高い',
+    '人手不足・運用コストに課題がある',
+    'ナレッジ活用や業務標準化が進んでいない',
+    'AI・ITSMを活用しきれていない',
+    'その他'
+  ],
+  visitorId: { minLen: 6, maxLen: 6, charset: 'digits' }, // charset: 'digits' | 'alnum'
+  surveyUrl: '' // 事務局アンケートURL（空なら非表示）
 };
 
-const CSV_HEADERS = ['レコードID', '端末ID', '連番', '保存時刻', 'フォーラムID', '対応担当者', '来場者との関係', '関心領域', '現在の課題', '検討フェーズ', '次アクション', '温度感', 'メモ', '更新時刻'];
+/* 設定画面で編集できる選択肢 */
+const LIST_SETTINGS = [
+  { key: 'purpose', label: '1. 来場目的' },
+  { key: 'role', label: '2. お客様の立場' },
+  { key: 'themes', label: '4. 関心テーマ' },
+  { key: 'actions', label: '5. CTCが今後取るべき対応', note: '「ホットリード」を含む選択肢は強調表示' },
+  { key: 'itIssue', label: '7. ITサポートの最大課題' },
+  { key: 'staff', label: '対応担当者の名簿', note: '空欄なら入力欄を表示しない', allowEmpty: true }
+];
+
+/* 3-1. 取引・案件状況（固定。noteがある選択肢は選ぶと記入欄が出る） */
+const DEAL_OPTIONS = [
+  { label: 'CTC取引有（進行中案件有）', note: '商材名', col: 'CTC取引有(進行中案件有)_商材名' },
+  { label: 'CTC取引有（進行中案件無）', note: '商材名', col: 'CTC取引有(進行中案件無)_商材名' },
+  { label: '他社案件あり', note: '商材・領域', col: '他社案件_内容' },
+  { label: 'なし', exclusive: true }
+];
+const isHot = (label) => String(label).includes('ホットリード');
+const BACKUP_WARN_MS = 2 * 60 * 60 * 1000;
+
+const CSV_HEADERS = [
+  'レコードID', '端末ID', '連番', '保存時刻', '来場者ID', '同時ヒアリング人数', '対応担当者',
+  '来場目的', 'お客様の立場', '取引・案件状況',
+  ...DEAL_OPTIONS.filter((d) => d.col).map((d) => d.col),
+  'CTC社内担当部署・担当者', '関心テーマ', '会話メモ', 'CTCが今後取るべき対応', 'ホットリード',
+  '管理番号', 'ITサポートの最大課題', '更新時刻'
+];
 const DB_NAME = 'booth-hearing';
 const DB_VERSION = 1;
-const DRAFT_KEY = 'booth-hearing-draft';
+const DRAFT_KEY = 'booth-hearing-draft-v2';
 
 /* ------------------------------ 状態 ------------------------------ */
 let db = null;
 let deviceId = '';
 let overrides = {};
-let settings = structuredCloneSafe(DEFAULT_CONFIG);
+let settings = clone(DEFAULT_CONFIG);
 let records = [];
 let lastExport = null;          // { ms, kind, count, file }
 let lastStaff = '';
@@ -58,7 +98,7 @@ let form = emptyForm();
 
 /* ------------------------------ 小道具 ------------------------------ */
 const $ = (s) => document.querySelector(s);
-function structuredCloneSafe(o) { return JSON.parse(JSON.stringify(o)); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function el(tag, attrs, ...kids) {
   const e = document.createElement(tag);
   if (attrs) for (const [k, v] of Object.entries(attrs)) {
@@ -103,6 +143,8 @@ function lines(text) {
   return out;
 }
 const recTs = (r) => r.updatedMs || r.savedMs;
+/* 旧版（v1）の記録にも対応 */
+const vidsOf = (r) => Array.isArray(r.visitorIds) ? r.visitorIds : (r.forumId ? [r.forumId] : []);
 
 function toast(msg, ms = 2200) {
   const t = $('#toast');
@@ -148,7 +190,6 @@ function openDB() {
       const d = r.result;
       if (!d.objectStoreNames.contains('records')) {
         const s = d.createObjectStore('records', { keyPath: 'id' });
-        s.createIndex('forumId', 'forumId');
         s.createIndex('seq', 'seq');
       }
       if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'key' });
@@ -180,7 +221,7 @@ function insertRecord(data) {
       const seq = (g.result ? g.result.value : 0) + 1;
       meta.put({ key: 'seq', value: seq });
       const now = new Date();
-      rec = Object.assign({}, data, {
+      rec = Object.assign({ v: 2 }, data, {
         id: `${deviceId}-${pad(seq, 4)}`,
         deviceId, seq,
         savedAt: localISO(now), savedMs: now.getTime(),
@@ -199,7 +240,8 @@ async function updateRecord(id, data) {
   const cur = await reqP(s.get(id));
   if (!cur) throw new Error('対象の記録が見つかりません');
   const now = new Date();
-  const rec = Object.assign({}, cur, data, { updatedAt: localISO(now), updatedMs: now.getTime() });
+  const rec = Object.assign({}, cur, { v: 2 }, data, { updatedAt: localISO(now), updatedMs: now.getTime() });
+  delete rec.forumId;
   s.put(rec);
   await txDone(t);
   return rec;
@@ -208,24 +250,39 @@ async function deleteRecord(id) { const t = db.transaction('records', 'readwrite
 
 /* ------------------------------ 設定 ------------------------------ */
 function applySettings() {
-  settings = Object.assign(structuredCloneSafe(DEFAULT_CONFIG), structuredCloneSafe(overrides));
-  settings.forumId = Object.assign({}, DEFAULT_CONFIG.forumId, overrides.forumId || {});
+  settings = clone(DEFAULT_CONFIG);
+  for (const k of Object.keys(DEFAULT_CONFIG)) if (overrides[k] !== undefined) settings[k] = clone(overrides[k]);
+  settings.visitorId = Object.assign({}, DEFAULT_CONFIG.visitorId, overrides.visitorId || {});
 }
-const issueOptions = () => settings.issues.concat([FIXED.otherLabel]);
-function fidHint() {
-  const f = settings.forumId;
+function vidHint() {
+  const f = settings.visitorId;
   const kind = f.charset === 'alnum' ? '英数字' : '数字';
   return f.minLen === f.maxLen ? `${kind}${f.minLen}桁` : `${kind}${f.minLen}〜${f.maxLen}桁`;
 }
-function forumIdOk(v) {
-  const f = settings.forumId;
+function vidOk(v) {
+  const f = settings.visitorId;
   const re = f.charset === 'alnum' ? /^[A-Z0-9]+$/ : /^[0-9]+$/;
   return re.test(v) && v.length >= f.minLen && v.length <= f.maxLen;
 }
+function savedWith(v, exceptId) { return records.filter((r) => r.id !== exceptId && vidsOf(r).includes(v)); }
 
 /* ------------------------------ フォーム ------------------------------ */
 function emptyForm() {
-  return { forumId: '', staff: lastStaff || '', relation: '', interests: [], issues: [], phase: '', nextAction: '', temp: '', memo: '' };
+  return {
+    visitorIds: [], staff: lastStaff || '', purpose: '', role: '',
+    deal: [], dealNotes: {}, ctcContact: '', themes: [], memo: '',
+    actions: [], mgmtNo: '', itIssue: ''
+  };
+}
+function sanitizeForm(d) {
+  const f = emptyForm();
+  if (!d || typeof d !== 'object') return f;
+  for (const k of Object.keys(f)) {
+    if (Array.isArray(f[k])) { if (Array.isArray(d[k])) f[k] = d[k].map(String); }
+    else if (k === 'dealNotes') { if (d[k] && typeof d[k] === 'object') for (const [a, b] of Object.entries(d[k])) f.dealNotes[a] = String(b); }
+    else if (typeof d[k] === 'string') f[k] = d[k];
+  }
+  return f;
 }
 function saveDraft() {
   if (editingId) return;
@@ -233,93 +290,226 @@ function saveDraft() {
 }
 function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* noop */ } }
 function loadDraft() {
-  try {
-    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
-    if (d && typeof d === 'object') form = Object.assign(emptyForm(), d);
-  } catch (e) { /* noop */ }
+  try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); if (d) form = sanitizeForm(d); } catch (e) { /* noop */ }
 }
 
 const GROUPS = {
-  staff: { el: '#grp-staff', opts: () => settings.staff, multi: false },
-  relation: { el: '#grp-relation', opts: () => FIXED.relations, multi: false },
-  interests: { el: '#grp-interests', opts: () => settings.interests, multi: true },
-  issues: { el: '#grp-issues', opts: issueOptions, multi: true },
-  phase: { el: '#grp-phase', opts: () => FIXED.phases, multi: false },
-  nextAction: { el: '#grp-nextAction', opts: () => FIXED.nextActions, multi: false }
+  staff: { multi: false },
+  purpose: { multi: false },
+  role: { multi: false },
+  themes: { multi: true },
+  actions: { multi: true },
+  itIssue: { multi: false }
 };
 
 function renderGroup(key) {
   const g = GROUPS[key];
-  const box = $(g.el);
-  const opts = g.opts();
+  const box = $('#grp-' + key);
+  const opts = settings[key];
   const sel = g.multi ? form[key] : (form[key] ? [form[key]] : []);
   const all = opts.slice();
   for (const v of sel) if (!all.includes(v)) all.push(v);
   box.textContent = '';
   for (const opt of all) {
-    const b = el('button', { type: 'button', class: 'chip' + (opts.includes(opt) ? '' : ' legacy'), 'aria-pressed': String(sel.includes(opt)), text: opt });
+    const cls = 'chip' + (opts.includes(opt) ? '' : ' legacy') + (isHot(opt) ? ' hot' : '');
+    const b = el('button', { type: 'button', class: cls, 'aria-pressed': String(sel.includes(opt)), text: opt });
     b.addEventListener('click', () => {
       if (g.multi) {
         const i = form[key].indexOf(opt);
         if (i >= 0) form[key].splice(i, 1); else form[key].push(opt);
       } else {
-        // 必須の担当者は再タップで解除しない（誤タップ防止）
-        form[key] = (form[key] === opt && key !== 'staff') ? '' : opt;
+        form[key] = form[key] === opt ? '' : opt;
       }
-      if (key === 'staff' && form.staff && !editingId) {
+      if (key === 'staff' && !editingId) {
         lastStaff = form.staff;
         metaSet('lastStaff', lastStaff).catch(() => {});
       }
-      $('#fld-' + key).classList.remove('missing');
       renderGroup(key);
       saveDraft();
     });
     box.append(b);
   }
 }
-function renderTemp() {
-  const box = $('#grp-temp');
+
+function renderDeal() {
+  const box = $('#grp-deal');
   box.textContent = '';
-  for (const t of FIXED.temps) {
-    const b = el('button', { type: 'button', class: 'temp', 'data-v': t.v, 'aria-pressed': String(form.temp === t.v) },
-      el('b', { text: t.v }), el('span', { text: t.hint }));
-    b.addEventListener('click', () => {
-      form.temp = t.v; // 必須項目のため再タップで解除しない
-      $('#fld-temp').classList.remove('missing');
-      renderTemp();
+  const known = DEAL_OPTIONS.map((d) => d.label);
+  const opts = DEAL_OPTIONS.concat(form.deal.filter((l) => !known.includes(l)).map((l) => ({ label: l, legacy: true })));
+  for (const d of opts) {
+    const on = form.deal.includes(d.label);
+    const chip = el('button', { type: 'button', class: 'chip' + (d.legacy ? ' legacy' : ''), 'aria-pressed': String(on), text: (on ? '✓ ' : '') + d.label });
+    chip.addEventListener('click', () => {
+      if (on) {
+        form.deal = form.deal.filter((x) => x !== d.label);
+        delete form.dealNotes[d.label];
+      } else if (d.exclusive) {
+        form.deal = [d.label];
+        form.dealNotes = {};
+      } else {
+        const ex = DEAL_OPTIONS.filter((x) => x.exclusive).map((x) => x.label);
+        form.deal = form.deal.filter((x) => !ex.includes(x)).concat(d.label);
+      }
+      renderDeal();
       saveDraft();
     });
-    box.append(b);
+    const row = el('div', { class: 'deal-row' }, chip);
+    if (on && d.note) {
+      const inp = el('input', { type: 'text', class: 'txt', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', placeholder: `${d.note}（任意）`, 'aria-label': `${d.label} の${d.note}` });
+      inp.value = form.dealNotes[d.label] || '';
+      inp.addEventListener('input', () => { form.dealNotes[d.label] = inp.value; saveDraft(); });
+      row.append(inp);
+    }
+    box.append(row);
   }
 }
-function renderForumIdMsg() {
-  const v = form.forumId;
-  const input = $('#in-forumId');
-  const msg = $('#fid-msg');
-  input.classList.toggle('bad', !!v && !forumIdOk(v));
-  const dups = v ? records.filter((r) => r.forumId === v && r.id !== editingId) : [];
-  if (!v) { msg.className = 'fmsg'; msg.textContent = ''; return; }
+
+function renderVids() {
+  const box = $('#vids');
+  box.textContent = '';
+  form.visitorIds.forEach((v, i) => {
+    const bad = !vidOk(v);
+    const dup = savedWith(v, editingId).length > 0;
+    box.append(el('div', { class: 'vid' + (bad ? ' bad' : '') + (dup ? ' dup' : '') },
+      el('button', { type: 'button', class: 'vid-main', 'aria-label': `${i + 1}人目 ${v} を修正`, onclick: () => openVidPad(i) },
+        el('small', { text: `${i + 1}人目` }), el('b', { text: v })),
+      el('button', {
+        type: 'button', class: 'vid-x', 'aria-label': `${v} を外す`, text: '×',
+        onclick: () => { form.visitorIds.splice(i, 1); saveDraft(); renderVids(); }
+      })
+    ));
+  });
+  const first = !form.visitorIds.length;
+  box.append(el('button', { type: 'button', class: 'vid-add' + (first ? ' first' : ''), id: 'btn-vid-add', onclick: () => openVidPad(null) },
+    first ? '＋ 来場者IDを入力' : '＋ 同行者を追加'));
+  // メッセージ
+  const msg = $('#vid-msg');
+  const bad = form.visitorIds.filter((v) => !vidOk(v));
+  const dups = form.visitorIds.filter((v) => savedWith(v, editingId).length);
   const parts = [];
   let cls = 'ok';
-  if (!forumIdOk(v)) { parts.push(`形式が「${fidHint()}」と一致しません（このまま保存も可能）`); cls = 'warn'; }
-  if (dups.length) { parts.push(`このIDは保存済みです（${dups.length}件）`); cls = 'dng'; }
-  msg.className = 'fmsg ' + cls;
-  msg.textContent = parts.length ? '⚠ ' + parts.join(' ／ ') : '✓ 形式OK';
+  if (bad.length) { parts.push(`形式が「${vidHint()}」と違います：${bad.join('、')}（保存は可能）`); cls = 'warn'; }
+  if (dups.length) { parts.push(`保存済みのID：${dups.join('、')}`); cls = 'dng'; }
+  msg.className = 'fmsg ' + (form.visitorIds.length ? cls : '');
+  msg.textContent = !form.visitorIds.length ? '' : parts.length ? '⚠ ' + parts.join(' ／ ')
+    : `✓ ${form.visitorIds.length}名${form.visitorIds.length > 1 ? '（同じ内容で記録されます）' : ''}`;
+  if (form.visitorIds.length) $('#fld-visitorIds').classList.remove('missing');
 }
+
+/* 来場者ID入力用テンキー（ポップアップ） */
+function openVidPad(editIndex) {
+  const digits = settings.visitorId.charset !== 'alnum';
+  let idx = editIndex;
+  let value = idx != null ? form.visitorIds[idx] : '';
+  const ov = el('div', { class: 'overlay' });
+  const box = el('div', { class: 'dlg pad', role: 'dialog', 'aria-modal': 'true' });
+  const title = el('h3');
+  const disp = el('input', {
+    class: 'pad-disp', type: 'text', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
+    autocapitalize: digits ? 'off' : 'characters', 'aria-label': '来場者ID', placeholder: '0'.repeat(Math.min(settings.visitorId.maxLen, 10))
+  });
+  if (digits) { disp.readOnly = true; disp.setAttribute('inputmode', 'none'); }
+  const msg = el('div', { class: 'fmsg' });
+  const added = el('div', { class: 'pad-added' });
+  const keys = el('div', { class: 'pad-keys' });
+  const press = (k) => {
+    if (k === '⌫') value = value.slice(0, -1);
+    else if (k === 'クリア') value = '';
+    else if (value.length < 30) value += k;
+    update();
+  };
+  for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'クリア', '0', '⌫']) {
+    const b = el('button', { type: 'button', class: k.length > 1 ? 'fn' : null, text: k, 'aria-label': k === '⌫' ? '1文字消す' : k });
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('click', () => press(k));
+    keys.append(b);
+  }
+  const btnCancel = el('button', { type: 'button', class: 'btn', text: 'キャンセル' });
+  const btnNext = el('button', { type: 'button', class: 'btn', text: '確定して次の人' });
+  const btnOk = el('button', { type: 'button', class: 'btn pri', text: '確定' });
+  const bar = el('div', { class: 'btns' }, btnCancel, btnNext, btnOk);
+
+  function dupInForm(v) { return form.visitorIds.some((x, i) => x === v && i !== idx); }
+  function update() {
+    value = normalizeId(value);
+    disp.value = value;
+    title.textContent = idx != null ? `来場者IDを修正（${idx + 1}人目）` : `来場者IDを入力（${form.visitorIds.length + 1}人目）`;
+    btnNext.hidden = idx != null;
+    let m = '', c = '';
+    if (value) {
+      const saved = savedWith(value, editingId);
+      if (dupInForm(value)) { m = 'この記録にすでに追加されています'; c = 'dng'; }
+      else if (saved.length) { m = `⚠ 保存済みのIDです（${saved.length}件）。保存時に確認します`; c = 'dng'; }
+      else if (!vidOk(value)) { m = `⚠ 形式が「${vidHint()}」と違います（このまま追加も可能）`; c = 'warn'; }
+      else { m = '✓ 形式OK'; c = 'ok'; }
+    }
+    msg.className = 'fmsg ' + c;
+    msg.textContent = m;
+    const others = form.visitorIds.filter((_, i) => i !== idx);
+    added.textContent = others.length ? `この記録の来場者：${others.join('、')}` : '';
+    btnOk.disabled = btnNext.disabled = !value || dupInForm(value);
+  }
+  function commit() {
+    const v = normalizeId(value);
+    if (!v || dupInForm(v)) return false;
+    if (idx != null) form.visitorIds[idx] = v; else form.visitorIds.push(v);
+    saveDraft();
+    renderVids();
+    return true;
+  }
+  function close() { document.removeEventListener('keydown', onKey, true); ov.remove(); }
+  function onKey(e) {
+    if (!digits && e.target === disp) { if (e.key === 'Enter') { e.preventDefault(); btnOk.click(); } else if (e.key === 'Escape') close(); return; }
+    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); }
+    else if (e.key === 'Backspace') { e.preventDefault(); press('⌫'); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (!btnOk.disabled) btnOk.click(); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+  }
+  btnCancel.addEventListener('click', close);
+  btnOk.addEventListener('click', () => { if (commit()) close(); });
+  btnNext.addEventListener('click', () => {
+    if (!commit()) return;
+    idx = null; value = '';
+    update();
+    toast(`${form.visitorIds.length}人目を追加しました`, 1200);
+  });
+  if (!digits) disp.addEventListener('input', () => { value = disp.value; update(); });
+  document.addEventListener('keydown', onKey, true);
+
+  box.append(title, disp, msg, added, keys, bar);
+  ov.append(box);
+  $('#modal-root').append(ov);
+  update();
+  if (!digits) setTimeout(() => disp.focus(), 50);
+}
+
+function nextMgmtNo() {
+  const last = records.filter((r) => r.mgmtNo).sort((a, b) => b.seq - a.seq)[0];
+  if (!last) return '';
+  const m = /^(.*?)(\d+)$/.exec(last.mgmtNo);
+  if (!m) return '';
+  const n = String(parseInt(m[2], 10) + 1).padStart(m[2].length, '0');
+  return m[1] + n;
+}
+function renderMgmt() {
+  $('#in-mgmtNo').value = form.mgmtNo;
+  const nx = nextMgmtNo();
+  const b = $('#btn-mgmt-next');
+  b.hidden = !nx || editingId;
+  b.textContent = `次の番号 ${nx}`;
+  b.dataset.v = nx;
+}
+
 function renderForm() {
-  const input = $('#in-forumId');
-  input.value = form.forumId;
-  const alnum = settings.forumId.charset === 'alnum';
-  input.setAttribute('inputmode', alnum ? 'text' : 'numeric');
-  input.setAttribute('autocapitalize', alnum ? 'characters' : 'off');
-  input.placeholder = '0'.repeat(Math.min(settings.forumId.maxLen, 10));
-  $('#fid-hint').textContent = fidHint();
-  renderForumIdMsg();
+  $('#vid-hint').textContent = vidHint();
+  renderVids();
+  $('#fld-staff').hidden = !settings.staff.length && !form.staff;
   Object.keys(GROUPS).forEach(renderGroup);
-  renderTemp();
+  renderDeal();
+  $('#in-ctcContact').value = form.ctcContact;
   $('#in-memo').value = form.memo;
+  renderMgmt();
   document.querySelectorAll('.field.missing').forEach((f) => f.classList.remove('missing'));
-  // 編集モード表示
   $('#edit-banner').hidden = !editingId;
   $('#edit-id').textContent = editingId || '';
   $('#btn-save').textContent = editingId ? '更新する' : '保存する';
@@ -327,36 +517,25 @@ function renderForm() {
   $('#btn-undo').hidden = !!editingId;
   $('#btn-undo').disabled = !records.length;
 }
-function buildKeypad() {
-  const kp = $('#keypad');
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '⌫', 'クリア'];
-  for (const k of keys) {
-    const b = el('button', { type: 'button', tabindex: '-1', text: k, class: k === '⌫' ? 'k-bs' : (k === 'クリア' ? 'k-clr' : null), 'aria-label': k === '⌫' ? '1文字消す' : k });
-    b.addEventListener('pointerdown', (e) => e.preventDefault()); // 入力欄のフォーカスを奪わない
-    b.addEventListener('click', () => {
-      if (k === '⌫') form.forumId = form.forumId.slice(0, -1);
-      else if (k === 'クリア') form.forumId = '';
-      else if (form.forumId.length < 30) form.forumId += k;
-      $('#in-forumId').value = form.forumId;
-      $('#fld-forumId').classList.remove('missing');
-      renderForumIdMsg();
-      saveDraft();
-    });
-    kp.append(b);
-  }
-}
 
 function collectForm() {
+  const dealNotes = {};
+  for (const l of form.deal) { const t = String(form.dealNotes[l] || '').trim(); if (t) dealNotes[l] = t; }
+  const ids = [];
+  for (const v of form.visitorIds.map(normalizeId)) if (v && !ids.includes(v)) ids.push(v);
   return {
-    forumId: normalizeId(form.forumId),
+    visitorIds: ids,
     staff: form.staff,
-    relation: form.relation,
-    interests: form.interests.slice(),
-    issues: form.issues.slice(),
-    phase: form.phase,
-    nextAction: form.nextAction,
-    temp: form.temp,
-    memo: String(form.memo || '').trim()
+    purpose: form.purpose,
+    role: form.role,
+    deal: form.deal.slice(),
+    dealNotes,
+    ctcContact: String(form.ctcContact || '').trim(),
+    themes: form.themes.slice(),
+    memo: String(form.memo || '').trim(),
+    actions: form.actions.slice(),
+    mgmtNo: String(form.mgmtNo || '').trim(),
+    itIssue: form.itIssue
   };
 }
 function resetForm() {
@@ -374,37 +553,35 @@ async function onSave() {
   saving = true;
   try {
     const data = collectForm();
-    const missing = [];
-    if (!data.forumId) missing.push(['forumId', 'フォーラムID']);
-    if (!data.staff) missing.push(['staff', '対応担当者']);
-    if (!data.temp) missing.push(['temp', '温度感']);
-    if (missing.length) {
-      missing.forEach(([k]) => $('#fld-' + k).classList.add('missing'));
-      $('#fld-' + missing[0][0]).scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await alertDlg('必須項目が未入力です', missing.map((m) => '・' + m[1]).join('\n'));
+    if (!data.visitorIds.length) {
+      $('#fld-visitorIds').classList.add('missing');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      await alertDlg('来場者IDが未入力です', '来場者IDを1つ以上入力してください。');
       return;
     }
-    if (!forumIdOk(data.forumId)) {
+    const bad = data.visitorIds.filter((v) => !vidOk(v));
+    if (bad.length) {
       const ok = await dialog({
-        title: 'フォーラムIDの形式が違います',
-        message: `入力：${data.forumId}（${data.forumId.length}桁）\n想定：${fidHint()}\n\nこのまま保存しますか？`,
+        title: '来場者IDの形式が違います',
+        message: `${bad.map((v) => `・${v}（${v.length}桁）`).join('\n')}\n想定：${vidHint()}\n\nこのまま保存しますか？`,
         buttons: [{ label: '修正する', value: false }, { label: 'このまま保存', value: true, kind: 'warn' }]
       });
       if (!ok) return;
     }
-    const dups = records.filter((r) => r.forumId === data.forumId && r.id !== editingId).sort((a, b) => b.savedMs - a.savedMs);
-    if (dups.length) {
-      const latest = dups[0];
+    const dupInfo = data.visitorIds
+      .map((v) => ({ v, list: savedWith(v, editingId).sort((a, b) => b.savedMs - a.savedMs) }))
+      .filter((x) => x.list.length);
+    if (dupInfo.length) {
       const r = await dialog({
-        title: '同じフォーラムIDが保存済みです',
-        message: `フォーラムID ${data.forumId} はすでに ${dups.length} 件あります。\n直近：${shortTime(latest.savedMs)}　${latest.staff}　温度感${latest.temp}`,
+        title: '同じ来場者IDが保存済みです',
+        message: dupInfo.map((x) => `・${x.v}：${x.list.length}件（直近 ${shortTime(x.list[0].savedMs)}）`).join('\n'),
         buttons: [
           { label: 'キャンセル', value: 'cancel' },
           { label: '既存を確認', value: 'check' },
           { label: '別件として保存', value: 'save', kind: 'warn' }
         ]
       });
-      if (r === 'check') { $('#list-q').value = data.forumId; showTab('list'); return; }
+      if (r === 'check') { $('#list-q').value = dupInfo[0].v; showTab('list'); return; }
       if (r !== 'save') return;
     }
 
@@ -416,7 +593,7 @@ async function onSave() {
     } else {
       const rec = await insertRecord(data);
       records.push(rec);
-      toast(`保存しました（${rec.id}）`);
+      toast(`保存しました（${rec.id}・${data.visitorIds.length}名）`);
     }
     resetForm();
     refreshAll();
@@ -431,7 +608,7 @@ async function onUndo() {
   if (!records.length) return;
   const last = records.slice().sort((a, b) => b.seq - a.seq)[0];
   const ok = await confirmDlg('直前の1件を取り消しますか？',
-    `${last.id}\nフォーラムID ${last.forumId}　${last.staff}　温度感${last.temp}　${shortTime(last.savedMs)}\n\nこの記録は削除され、元に戻せません。`, '取り消す', 'dng');
+    `${last.id}（${shortTime(last.savedMs)}）\n来場者ID：${vidsOf(last).join('、')}\n\nこの記録は削除され、元に戻せません。`, '取り消す', 'dng');
   if (!ok) return;
   try {
     await deleteRecord(last.id);
@@ -445,7 +622,7 @@ async function onUndo() {
 async function onDeleteEditing() {
   const rec = records.find((r) => r.id === editingId);
   if (!rec) return;
-  const ok = await confirmDlg('この記録を削除しますか？', `${rec.id}\nフォーラムID ${rec.forumId}　${rec.staff}　${shortTime(rec.savedMs)}\n\n元に戻せません。`, '削除する', 'dng');
+  const ok = await confirmDlg('この記録を削除しますか？', `${rec.id}（${shortTime(rec.savedMs)}）\n来場者ID：${vidsOf(rec).join('、')}\n\n元に戻せません。`, '削除する', 'dng');
   if (!ok) return;
   try {
     await deleteRecord(rec.id);
@@ -462,11 +639,7 @@ function startEdit(id) {
   if (!rec) return;
   saveDraft(); // 入力途中の新規分は下書きに残す
   editingId = id;
-  form = {
-    forumId: rec.forumId, staff: rec.staff, relation: rec.relation || '',
-    interests: (rec.interests || []).slice(), issues: (rec.issues || []).slice(),
-    phase: rec.phase || '', nextAction: rec.nextAction || '', temp: rec.temp, memo: rec.memo || ''
-  };
+  form = sanitizeForm(Object.assign({}, rec, { visitorIds: vidsOf(rec) }));
   showTab('input');
   renderForm();
   window.scrollTo(0, 0);
@@ -485,20 +658,23 @@ function renderList() {
   const rows = $('#rows');
   rows.textContent = '';
   const list = records
-    .filter((r) => !q || r.forumId.includes(q))
+    .filter((r) => !q || vidsOf(r).some((v) => v.includes(q)) || normalizeId(r.mgmtNo || '').includes(q))
     .sort((a, b) => (b.savedMs - a.savedMs) || (b.seq - a.seq));
   if (!list.length) {
     rows.append(el('div', { class: 'empty', text: q ? `「${q}」に一致する記録はありません` : 'まだ記録がありません' }));
     return;
   }
   for (const r of list) {
-    const row = el('button', { type: 'button', class: 'row', 'aria-label': `${r.forumId} を編集` },
+    const ids = vidsOf(r);
+    const hot = (r.actions || []).some(isHot);
+    const acts = (r.actions || []).filter((a) => !isHot(a));
+    const row = el('button', { type: 'button', class: 'row' + (hot ? ' hot' : ''), 'aria-label': `${ids.join('、')} を編集` },
       el('span', { class: 't', text: shortTime(r.savedMs) }),
-      el('span', { class: 'fid' }, r.forumId, r.updatedMs ? el('span', { class: 'edited', text: '編集済' }) : null),
-      el('span', {}, el('span', { class: 'tb ' + r.temp, text: r.temp })),
-      el('span', { text: r.staff }),
-      el('span', { class: 'rel', text: r.relation || '—' }),
-      el('span', { class: 'rid', text: r.id })
+      el('span', { class: 'fid' }, ids.join('、'), ids.length > 1 ? el('small', { text: `${ids.length}名` }) : null,
+        r.updatedMs ? el('span', { class: 'edited', text: '編集済' }) : null),
+      el('span', { class: 'sub', text: [r.purpose, r.role].filter(Boolean).join(' / ') || '—' }),
+      el('span', { class: 'sub act' }, hot ? el('span', { class: 'hotb', text: 'HOT' }) : null, acts.join('、') || (hot ? '' : '—')),
+      el('span', { class: 'rid', text: (r.mgmtNo ? `No.${r.mgmtNo}　` : '') + r.id })
     );
     row.addEventListener('click', () => startEdit(r.id));
     rows.append(row);
@@ -513,36 +689,36 @@ function unexported() {
 function backupState() {
   const un = unexported();
   const base = lastExport ? lastExport.ms : (un.length ? Math.min(...un.map((r) => r.savedMs)) : Date.now());
-  const warn = un.length > 0 && Date.now() - base >= FIXED.backupWarnMs;
+  const warn = un.length > 0 && Date.now() - base >= BACKUP_WARN_MS;
   return { un, warn };
 }
 function refreshStatus() {
   const today = dayKey(Date.now());
-  $('#st-today').textContent = records.filter((r) => dayKey(r.savedMs) === today).length;
+  const todays = records.filter((r) => dayKey(r.savedMs) === today);
+  $('#st-today').textContent = todays.length;
+  $('#st-today-p').textContent = todays.reduce((n, r) => n + vidsOf(r).length, 0);
   $('#st-device').textContent = deviceId || '未設定';
   const { un, warn } = backupState();
-  const b = $('#st-backup');
   $('#st-backup-time').textContent = lastExport ? `${shortTime(lastExport.ms)}（${ago(lastExport.ms)}）` : '未実施';
   $('#st-backup-sub').textContent = warn
     ? `⚠ ${lastExport ? '2時間以上経過' : '未バックアップ'}・未書き出し${un.length}件 — タップしてCSV書き出し`
     : (un.length ? `未書き出し ${un.length}件 — タップで書き出し` : '未書き出しなし');
-  b.classList.toggle('warn', warn);
+  $('#st-backup').classList.toggle('warn', warn);
   $('#tab-list-count').textContent = `(${records.length})`;
   $('#btn-undo').disabled = !records.length;
   $('#btn-survey').hidden = !settings.surveyUrl;
-  // 設定画面の表示
-  $('#set-count').textContent = `${records.length}件`;
+  $('#set-count').textContent = `${records.length}件（${records.reduce((n, r) => n + vidsOf(r).length, 0)}名）`;
   $('#set-unexported').textContent = `${un.length}件`;
   $('#set-lastexport').textContent = lastExport
     ? `${localISO(new Date(lastExport.ms)).slice(0, 16).replace('T', ' ')}（${lastExport.kind === 'all' ? '全件' : '差分'} ${lastExport.count}件）`
     : '未実施';
-  const needAttention = persistState === 'denied' || (swReg && swReg.waiting);
-  $('#tab-settings-badge').hidden = !needAttention;
+  $('#tab-settings-badge').hidden = !(persistState === 'denied' || (swReg && swReg.waiting));
 }
 function refreshAll() {
   refreshStatus();
   renderList();
-  renderForumIdMsg();
+  renderVids();
+  renderMgmt();
 }
 
 /* ------------------------------ CSV ------------------------------ */
@@ -551,14 +727,22 @@ function csvCell(v) {
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // Excelでの数式解釈（CSVインジェクション）防止
   return '"' + s.replace(/"/g, '""') + '"';
 }
+/* 来場者IDごとに1行（同じ記録に複数名いる場合は同じ内容の行が人数分並ぶ） */
 function buildCsv(list) {
   const rows = [CSV_HEADERS.map(csvCell).join(',')];
   for (const r of list.slice().sort((a, b) => a.seq - b.seq)) {
-    rows.push([
-      r.id, r.deviceId, r.seq, r.savedAt, r.forumId, r.staff, r.relation,
-      (r.interests || []).join(';'), (r.issues || []).join(';'),
-      r.phase, r.nextAction, r.temp, r.memo, r.updatedAt || ''
-    ].map(csvCell).join(','));
+    const ids = vidsOf(r);
+    const notes = r.dealNotes || {};
+    const common = [
+      r.staff || '', r.purpose || '', r.role || '', (r.deal || []).join(';'),
+      ...DEAL_OPTIONS.filter((d) => d.col).map((d) => notes[d.label] || ''),
+      r.ctcContact || '', (r.themes || []).join(';'), r.memo || '', (r.actions || []).join(';'),
+      (r.actions || []).some(isHot) ? '○' : '',
+      r.mgmtNo || '', r.itIssue || '', r.updatedAt || ''
+    ];
+    for (const v of (ids.length ? ids : [''])) {
+      rows.push([r.id, r.deviceId, r.seq, r.savedAt, v, ids.length, ...common].map(csvCell).join(','));
+    }
   }
   return '﻿' + rows.join('\r\n') + '\r\n';
 }
@@ -622,7 +806,7 @@ function openExport() {
     : 'この環境では共有機能が使えないため、ダウンロードします。';
   dialog({
     title: 'CSV書き出し（バックアップ）',
-    message: `全 ${all.length}件 ／ 前回書き出し以降 ${diff.length}件\n${lastExport ? '前回：' + shortTime(lastExport.ms) : '前回：未実施'}\n\n${shareNote}`,
+    message: `全 ${all.length}件 ／ 前回書き出し以降 ${diff.length}件\n${lastExport ? '前回：' + shortTime(lastExport.ms) : '前回：未実施'}\n※CSVは来場者IDごとに1行になります\n\n${shareNote}`,
     buttons: [
       { label: '閉じる', value: null },
       { label: `全件（${all.length}件）`, value: 'all', onClick: go('all', all.length) },
@@ -645,14 +829,19 @@ function showTab(name) {
 
 /* ------------------------------ 設定画面 ------------------------------ */
 let fidCharsetDraft = 'digits';
+function buildSettingsLists() {
+  const box = $('#set-lists');
+  box.textContent = '';
+  for (const s of LIST_SETTINGS) {
+    box.append(el('label', {}, s.label, s.note ? el('small', { text: s.note }) : null, el('textarea', { id: 'set-list-' + s.key })));
+  }
+}
 function fillSettings() {
   $('#set-device').value = deviceId;
-  $('#set-staff').value = settings.staff.join('\n');
-  $('#set-interests').value = settings.interests.join('\n');
-  $('#set-issues').value = settings.issues.join('\n');
-  $('#set-fid-min').value = settings.forumId.minLen;
-  $('#set-fid-max').value = settings.forumId.maxLen;
-  fidCharsetDraft = settings.forumId.charset;
+  for (const s of LIST_SETTINGS) $('#set-list-' + s.key).value = settings[s.key].join('\n');
+  $('#set-fid-min').value = settings.visitorId.minLen;
+  $('#set-fid-max').value = settings.visitorId.maxLen;
+  fidCharsetDraft = settings.visitorId.charset;
   renderCharsetSeg();
   $('#set-survey').value = settings.surveyUrl || '';
   refreshStatus();
@@ -661,24 +850,20 @@ function renderCharsetSeg() {
   document.querySelectorAll('#set-fid-charset button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === fidCharsetDraft)));
 }
 async function onSaveSettings() {
-  const staff = lines($('#set-staff').value);
-  const interests = lines($('#set-interests').value);
-  const issues = lines($('#set-issues').value).filter((x) => x !== FIXED.otherLabel);
+  const next = {};
+  const errs = [];
+  for (const s of LIST_SETTINGS) {
+    next[s.key] = lines($('#set-list-' + s.key).value);
+    if (!s.allowEmpty && !next[s.key].length) errs.push(`「${s.label}」を1つ以上入力してください`);
+  }
   const minLen = parseInt($('#set-fid-min').value, 10);
   const maxLen = parseInt($('#set-fid-max').value, 10);
   const survey = $('#set-survey').value.trim();
-  const errs = [];
-  if (!staff.length) errs.push('担当者を1名以上入力してください');
-  if (!interests.length) errs.push('関心領域を1つ以上入力してください');
-  if (!issues.length) errs.push('現在の課題を1つ以上入力してください');
   if (!(minLen >= 1 && minLen <= 30 && maxLen >= 1 && maxLen <= 30 && minLen <= maxLen)) errs.push('桁数は1〜30で、最小≦最大にしてください');
   if (survey && !/^https:\/\/\S+$/i.test(survey)) errs.push('アンケートURLは https:// で始まる形式にしてください');
   if (errs.length) { alertDlg('設定を保存できません', errs.join('\n')); return; }
-  const warns = [];
-  if (issues.length < 5 || issues.length > 8) warns.push(`現在の課題が${issues.length}個です（推奨5〜8個）`);
-  if (warns.length && !(await confirmDlg('確認', warns.join('\n') + '\n\nこのまま保存しますか？', '保存する'))) return;
-
-  const next = { staff, interests, issues, forumId: { minLen, maxLen, charset: fidCharsetDraft }, surveyUrl: survey };
+  next.visitorId = { minLen, maxLen, charset: fidCharsetDraft };
+  next.surveyUrl = survey;
   // 初期値と同じ項目は上書き扱いにしない（配信側の初期値変更を反映させるため）
   const ov = {};
   for (const k of Object.keys(next)) if (JSON.stringify(next[k]) !== JSON.stringify(DEFAULT_CONFIG[k])) ov[k] = next[k];
@@ -686,19 +871,22 @@ async function onSaveSettings() {
     await metaSet('settings', ov);
     overrides = ov;
     applySettings();
-    if (lastStaff && !settings.staff.includes(lastStaff)) { lastStaff = ''; await metaSet('lastStaff', ''); }
-    if (!editingId && form.staff && !settings.staff.includes(form.staff)) form.staff = '';
+    await fixStaff();
     renderForm();
     refreshStatus();
     toast('設定を保存しました');
   } catch (e) { alertDlg('設定の保存に失敗しました', e.message); }
 }
+async function fixStaff() {
+  if (lastStaff && !settings.staff.includes(lastStaff)) { lastStaff = ''; await metaSet('lastStaff', ''); }
+  if (!editingId && form.staff && !settings.staff.includes(form.staff)) form.staff = '';
+}
 async function onResetSettings() {
-  if (!(await confirmDlg('初期値に戻しますか？', '担当者名簿・関心領域・課題・フォーラムID形式・アンケートURLを、配信時の初期値に戻します。\n（端末ID・保存済みの記録はそのままです）', '初期値に戻す'))) return;
+  if (!(await confirmDlg('初期値に戻しますか？', '選択肢・来場者IDの形式・アンケートURLを、配信時の初期値に戻します。\n（端末ID・保存済みの記録はそのままです）', '初期値に戻す'))) return;
   await metaSet('settings', {});
   overrides = {};
   applySettings();
-  if (lastStaff && !settings.staff.includes(lastStaff)) { lastStaff = ''; await metaSet('lastStaff', ''); }
+  await fixStaff();
   fillSettings();
   renderForm();
   toast('初期値に戻しました');
@@ -848,17 +1036,10 @@ function bindEvents() {
     if (b.dataset.tab === 'list' && editingId) { cancelEdit(); return; }
     showTab(b.dataset.tab);
   }));
-  const fid = $('#in-forumId');
-  fid.addEventListener('input', () => {
-    const v = normalizeId(fid.value);
-    if (v !== fid.value) fid.value = v;
-    form.forumId = v;
-    $('#fld-forumId').classList.remove('missing');
-    renderForumIdMsg();
-    saveDraft();
-  });
-  fid.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fid.blur(); } });
   $('#in-memo').addEventListener('input', (e) => { form.memo = e.target.value; saveDraft(); });
+  $('#in-ctcContact').addEventListener('input', (e) => { form.ctcContact = e.target.value; saveDraft(); });
+  $('#in-mgmtNo').addEventListener('input', (e) => { form.mgmtNo = e.target.value; saveDraft(); });
+  $('#btn-mgmt-next').addEventListener('click', (e) => { form.mgmtNo = e.currentTarget.dataset.v || ''; $('#in-mgmtNo').value = form.mgmtNo; saveDraft(); });
   $('#btn-save').addEventListener('click', onSave);
   $('#btn-undo').addEventListener('click', onUndo);
   $('#btn-delete').addEventListener('click', onDeleteEditing);
@@ -892,7 +1073,7 @@ function bindEvents() {
 }
 
 async function init() {
-  buildKeypad();
+  buildSettingsLists();
   bindEvents();
   $('#standalone-banner').hidden = isStandalone();
   try {
@@ -915,7 +1096,6 @@ async function init() {
   refreshAll();
   setupSW();
   if (!deviceId) { await askDeviceId(); refreshStatus(); }
-  if (persistState === 'denied') refreshStatus();
 }
 
 init();

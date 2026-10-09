@@ -3,7 +3,7 @@
  * - 外部への通信は行わない（同一オリジンのGETのみ処理）
  * - アプリを更新したら、必ず下の VERSION を変更して配信すること
  */
-const VERSION = '1.0.0';
+const VERSION = '2.0.0';
 const CACHE = 'booth-hearing-' + VERSION;
 const ASSETS = [
   './',
