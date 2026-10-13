@@ -29,13 +29,19 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-size:17px;line-height:1.45;
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",sans-serif;
   overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* アプリ型レイアウト：上部・下部バーは固定し、中央（main）だけをスクロールさせる。
+   iPadで一番下まで引っぱったときに保存バーが浮いたり重なったりしないようにするため */
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh;position:fixed;inset:0;width:100%}
+main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;width:100%}
+.main-in{max-width:1100px;margin:0 auto}
 button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer;-webkit-user-select:none;user-select:none;border:0;background:none}
 button:disabled{opacity:.4;cursor:default}
 input,textarea{font:inherit;font-size:18px;color:var(--ink)}
 [hidden]{display:none !important}
 
 /* ---------- ヘッダー ---------- */
-#chrome{position:sticky;top:0;z-index:20}
+#chrome{flex:none;z-index:20}
 #topbar{background:var(--pri);color:#fff;display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;
   padding:calc(var(--sat) + 8px) calc(var(--sar) + 16px) 8px calc(var(--sal) + 16px)}
 .stat{display:flex;flex-direction:column;justify-content:center;min-height:52px;padding:4px 14px;border-radius:12px;background:rgba(255,255,255,.12);text-align:left}
@@ -69,7 +75,7 @@ input,textarea{font:inherit;font-size:18px;color:var(--ink)}
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:var(--dng);color:#fff;font-size:13px;margin-left:4px;padding:0 6px}
 .count{font-weight:600;color:var(--sub);font-size:14px}
 
-main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(var(--sab) + 110px) calc(var(--sal) + 16px)}
+main{padding:12px calc(var(--sar) + 16px) 24px calc(var(--sal) + 16px)}
 .banner{border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:15px}
 .banner.warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn)}
 .banner.info{background:var(--pri-l);border:1px solid #9fcbd0;color:var(--pri-d)}
@@ -141,7 +147,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .mgmt .txt{width:220px;flex:0 1 220px}
 
 /* ---------- 下部アクションバー ---------- */
-#actionbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.97);border-top:1px solid var(--line);
+#actionbar{flex:none;position:relative;z-index:20;background:rgba(255,255,255,.97);border-top:1px solid var(--line);
   display:flex;gap:10px;align-items:center;padding:10px calc(var(--sar) + 16px) calc(var(--sab) + 10px) calc(var(--sal) + 16px)}
 .btn{min-height:56px;padding:0 20px;border-radius:14px;font-weight:700;font-size:17px;background:#e9eef0;color:var(--ink)}
 .btn.pri{background:var(--pri);color:#fff}
@@ -238,6 +244,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 </div>
 
 <main>
+<div class="main-in">
   <!-- ================= 入力 ================= -->
   <section id="view-input" class="view">
     <div id="standalone-banner" class="banner warn" hidden>ホーム画面のアイコンから起動してください。Safariのタブで開いた場合、データはホーム画面版とは別に保存されます。</div>
@@ -357,7 +364,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 
     <div class="card">
       <h2>選択肢</h2>
-      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。「2-1. 取引・案件状況」の選択肢は固定です。関心テーマは行頭に ★ を付けると青枠で表示されます。</p>
+      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。関心テーマは行頭に ★ を付けると青枠で表示されます。</p>
       <div class="set-grid cols" id="set-lists"></div>
     </div>
 
@@ -413,6 +420,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
       <button type="button" class="btn ghost-dng" id="btn-wipe">全データ削除…</button>
     </div>
   </section>
+</div>
 </main>
 
 <footer id="actionbar">
