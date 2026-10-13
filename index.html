@@ -107,6 +107,17 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .deal-row .chip{min-width:250px;text-align:left}
 .deal-row .txt{flex:1 1 240px;min-height:52px}
 
+.temps{display:flex;gap:10px;flex-wrap:wrap}
+.temp{flex:1 1 150px;max-width:230px;min-height:78px;border:3px solid var(--line);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.temp b{font-size:34px;line-height:1}
+.temp span{font-size:13px;color:var(--sub)}
+.temp[data-v="A"] b{color:#c2410c} .temp[data-v="B"] b{color:#b7791f} .temp[data-v="C"] b{color:#4a6572}
+.temp[aria-pressed="true"] b,.temp[aria-pressed="true"] span{color:#fff}
+.temp[data-v="A"][aria-pressed="true"]{background:#c2410c;border-color:#c2410c}
+.temp[data-v="B"][aria-pressed="true"]{background:#b7791f;border-color:#b7791f}
+.temp[data-v="C"][aria-pressed="true"]{background:#4a6572;border-color:#4a6572}
+.tb{display:inline-flex;width:30px;height:30px;border-radius:8px;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:#fff;margin-right:8px;vertical-align:2px}
+.tb.A{background:#c2410c} .tb.B{background:#b7791f} .tb.C{background:#4a6572}
 .memo-warn{margin:0 0 6px;padding:8px 12px;border-radius:10px;background:var(--dng-bg);color:var(--dng);font-weight:700;font-size:15px}
 #in-memo{width:100%;min-height:110px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;resize:vertical;background:#fff}
 #in-memo:focus{outline:none;border-color:var(--pri)}
@@ -269,8 +280,14 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
       <div class="chips multi" id="grp-actions"></div>
     </div>
 
-    <div class="field" id="fld-mgmtNo">
-      <div class="label">5. 管理番号<small>任意・ブースの通し番号など</small></div>
+    <div class="field" id="fld-temp">
+      <div class="label">5. 顧客温度感<small>A・B・Cから1つ</small></div>
+      <div class="temps" id="grp-temp"></div>
+    </div>
+
+    <!-- 管理番号：画面には表示しない（CSVの列としては残す） -->
+    <div class="field" id="fld-mgmtNo" hidden>
+      <div class="label">管理番号<small>任意・ブースの通し番号など</small></div>
       <div class="mgmt">
         <input type="text" id="in-mgmtNo" class="txt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="管理番号">
         <button type="button" class="btn" id="btn-mgmt-next" hidden></button>
@@ -291,7 +308,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
   <!-- ================= 一覧 ================= -->
   <section id="view-list" class="view" hidden>
     <div class="list-tools">
-      <input id="list-q" type="text" inputmode="numeric" placeholder="来場者ID・管理番号で絞り込み" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="来場者ID・管理番号で絞り込み">
+      <input id="list-q" type="text" inputmode="numeric" placeholder="来場者IDで絞り込み" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="来場者IDで絞り込み">
       <button type="button" class="btn" id="btn-list-clear">絞り込み解除</button>
     </div>
     <div class="rows" id="rows"></div>

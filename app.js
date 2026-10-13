@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 
 /* =====================================================================
  * 配信時の初期設定（確定版の質問項目）
@@ -74,6 +74,12 @@ const DEAL_OPTIONS = [
   { label: 'CTC取引無', group: 'ctc' },
   { label: '他社案件有', note: '商材・領域', col: '他社案件_内容' }
 ];
+/* 5. 顧客温度感（A/B/C。説明文はここで変更） */
+const TEMPS = [
+  { v: 'A', hint: '前向き・早期フォロー' },
+  { v: 'B', hint: '関心あり' },
+  { v: 'C', hint: '情報収集程度' }
+];
 const isHot = (label) => String(label).includes('ホットリード');
 const BACKUP_WARN_MS = 2 * 60 * 60 * 1000;
 
@@ -81,7 +87,7 @@ const CSV_HEADERS = [
   'レコードID', '端末ID', '連番', '保存時刻', '来場者ID', '同時ヒアリング人数', '対応担当者',
   '来場目的', '取引・案件状況',
   ...DEAL_OPTIONS.filter((d) => d.col).map((d) => d.col),
-  'CTC社内担当部署・担当者', '関心テーマ', '会話メモ', 'CTCが今後取るべき対応', 'ホットリード',
+  'CTC社内担当部署・担当者', '関心テーマ', '会話メモ', 'CTCが今後取るべき対応', 'ホットリード', '温度感',
   '管理番号', 'ITサポートの最大課題', 'お客様の立場', '更新時刻'
 ];
 const DB_NAME = 'booth-hearing';
@@ -279,7 +285,7 @@ function emptyForm() {
   return {
     visitorIds: [], staff: lastStaff || '', purpose: '', role: '',
     deal: [], dealNotes: {}, ctcContact: '', themes: [], memo: '',
-    actions: [], mgmtNo: '', itIssue: ''
+    actions: [], temp: '', mgmtNo: '', itIssue: ''
   };
 }
 function sanitizeForm(d) {
@@ -508,12 +514,28 @@ function renderMgmt() {
   b.dataset.v = nx;
 }
 
+function renderTemp() {
+  const box = $('#grp-temp');
+  box.textContent = '';
+  for (const t of TEMPS) {
+    const b = el('button', { type: 'button', class: 'temp', 'data-v': t.v, 'aria-pressed': String(form.temp === t.v) },
+      el('b', { text: t.v }), el('span', { text: t.hint }));
+    b.addEventListener('click', () => {
+      form.temp = form.temp === t.v ? '' : t.v; // もう一度押すと解除
+      renderTemp();
+      saveDraft();
+    });
+    box.append(b);
+  }
+}
+
 function renderForm() {
   $('#vid-hint').textContent = vidHint();
   renderVids();
   $('#fld-staff').hidden = !settings.staff.length && !form.staff;
   Object.keys(GROUPS).forEach(renderGroup);
   renderDeal();
+  renderTemp();
   $('#in-ctcContact').value = form.ctcContact;
   $('#in-memo').value = form.memo;
   renderMgmt();
@@ -542,7 +564,8 @@ function collectForm() {
     themes: form.themes.slice(),
     memo: String(form.memo || '').trim(),
     actions: form.actions.slice(),
-    mgmtNo: String(form.mgmtNo || '').trim(),
+    temp: form.temp,
+    mgmtNo: String(form.mgmtNo || '').trim(), // 画面には出さないがCSVの列として残す
     itIssue: form.itIssue
   };
 }
@@ -678,7 +701,7 @@ function renderList() {
     const acts = (r.actions || []).filter((a) => !isHot(a));
     const row = el('button', { type: 'button', class: 'row' + (hot ? ' hot' : ''), 'aria-label': `${ids.join('、')} を編集` },
       el('span', { class: 't', text: shortTime(r.savedMs) }),
-      el('span', { class: 'fid' }, ids.join('、'), ids.length > 1 ? el('small', { text: `${ids.length}名` }) : null,
+      el('span', { class: 'fid' }, r.temp ? el('span', { class: 'tb ' + r.temp, text: r.temp }) : null, ids.join('、'), ids.length > 1 ? el('small', { text: `${ids.length}名` }) : null,
         r.updatedMs ? el('span', { class: 'edited', text: '編集済' }) : null),
       el('span', { class: 'sub', text: [r.purpose, r.role].filter(Boolean).join(' / ') || '—' }),
       el('span', { class: 'sub act' }, hot ? el('span', { class: 'hotb', text: 'HOT' }) : null, acts.join('、') || (hot ? '' : '—')),
@@ -746,6 +769,7 @@ function buildCsv(list) {
       ...DEAL_OPTIONS.filter((d) => d.col).map((d) => notes[d.label] || ''),
       r.ctcContact || '', (r.themes || []).join(';'), r.memo || '', (r.actions || []).join(';'),
       (r.actions || []).some(isHot) ? '○' : '',
+      r.temp || '',
       r.mgmtNo || '', r.itIssue || '', r.role || '', r.updatedAt || ''
     ];
     for (const v of (ids.length ? ids : [''])) {
