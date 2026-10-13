@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.4.0';
 
 /* =====================================================================
  * 配信時の初期設定（確定版の質問項目）
@@ -63,7 +63,7 @@ const LIST_SETTINGS = [
   { key: 'purpose', label: '1. 来場目的' },
   { key: 'themes', label: '3. 関心テーマ', note: '行頭に ★ を付けた項目は青枠で表示' },
   { key: 'actions', label: '4. CTCが今後取るべき対応', note: '「ホットリード」を含む選択肢は強調表示' },
-  { key: 'itIssue', label: '6. ITサポートの最大課題' },
+  { key: 'itIssue', label: '5. ITサポートの最大課題' },
   { key: 'role', label: '7. お客様の立場' },
   { key: 'staff', label: '対応担当者の名簿', note: '空欄なら入力欄を表示しない', allowEmpty: true }
 ];
@@ -74,7 +74,7 @@ const DEAL_OPTIONS = [
   { label: 'CTC取引無', group: 'ctc' },
   { label: '他社案件有', note: '商材・領域', col: '他社案件_内容' }
 ];
-/* 5. 顧客温度感（A/B/C。説明文はここで変更） */
+/* 6. 顧客温度感（A/B/C。説明文はここで変更） */
 const TEMPS = [
   { v: 'A', hint: '前向き・早期フォロー' },
   { v: 'B', hint: '関心あり' },
@@ -126,10 +126,10 @@ const CSV_COLUMNS = [
   ['5.早期フォロー要（ホットリード）', (r) => ((r.actions || []).some(isHot) ? '○' : '')],
   ['管理番号', (r) => r.mgmtNo || ''],
   // ===== 【社内】CTCFC独自項目 =====
-  ['【社内】温度感', (r) => r.temp || ''],
   ['【社内】関心テーマ（CTCFC重点）', (r) => join((r.themes || []).filter((t) => !JIMU_THEMES.includes(t)))],
   ['【社内】今後の対応（追加項目）', (r) => join((r.actions || []).filter((a) => !JIMU_ACTIONS.includes(a) && !isHot(a)))],
   ['【社内】ITサポートの最大課題', (r) => r.itIssue || ''],
+  ['【社内】温度感', (r) => r.temp || ''],
   ['【社内】開催日区分', (r) => recDay(r) || '日程外'],
   ['【社内】同時ヒアリング人数', (r, v, ids) => ids.length],
   ['【社内】レコードID', (r) => r.id],
@@ -673,7 +673,7 @@ async function onSave() {
     } else {
       const rec = await insertRecord(data);
       records.push(rec);
-      toast(`保存しました（${rec.id}・${data.visitorIds.length}名）`);
+      toast('保存しました'); // 件数や連番は表示しない（来場者に見えるため）
     }
     resetForm();
     refreshAll();
@@ -775,14 +775,16 @@ function backupState() {
 function refreshStatus() {
   const today = dayKey(Date.now());
   const todays = records.filter((r) => dayKey(r.savedMs) === today);
-  $('#st-today').textContent = todays.length;
-  $('#st-today-p').textContent = todays.reduce((n, r) => n + vidsOf(r).length, 0);
+  const people = (list) => list.reduce((n, r) => n + vidsOf(r).length, 0);
+  // 件数は「保存済み一覧」タブの中だけに表示（画面上部には出さない）
+  $('#list-sum').innerHTML = '';
+  $('#list-sum').append('本日 ', el('b', { text: String(todays.length) }), '件（', el('b', { text: String(people(todays)) }), '名）　／　この端末の合計 ', el('b', { text: String(records.length) }), '件（', el('b', { text: String(people(records)) }), '名）');
   $('#st-device').textContent = deviceId || '未設定';
   const { un, warn } = backupState();
   $('#st-backup-time').textContent = lastExport ? `${shortTime(lastExport.ms)}（${ago(lastExport.ms)}）` : '未実施';
   $('#st-backup-sub').textContent = warn
-    ? `⚠ ${lastExport ? '2時間以上経過' : '未バックアップ'}・未書き出し${un.length}件 — タップしてCSV書き出し`
-    : (un.length ? `未書き出し ${un.length}件 — タップで書き出し` : '未書き出しなし');
+    ? `⚠ ${lastExport ? '2時間以上経過' : '未バックアップ'} — タップしてCSV書き出し`
+    : (un.length ? '未書き出しあり — タップで書き出し' : '未書き出しなし');
   $('#st-backup').classList.toggle('warn', warn);
   const day = dayOf(Date.now());
   const ds = $('#st-day');
