@@ -49,6 +49,19 @@ input,textarea{font:inherit;font-size:18px;color:var(--ink)}
 #st-day .sub{font-size:13px;opacity:.9}
 #st-day.off{background:#ffb020;color:#2b1800}
 .dayb{display:inline-block;font-size:11px;font-weight:800;background:var(--pri-l);color:var(--pri-d);border-radius:5px;padding:0 5px;margin-right:5px;text-transform:uppercase;vertical-align:1px}
+#btn-qr{min-height:52px;padding:0 18px;border-radius:12px;background:#fff;color:var(--pri-d);font-weight:800}
+.qr-set{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:700px){.qr-set{grid-template-columns:1fr 1fr}}
+.qr-slot{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center}
+.qr-slot .pv{width:120px;height:120px;border:1px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:13px;background:#fafbfb;flex:none}
+.qr-slot .pv img{max-width:100%;max-height:100%;image-rendering:pixelated}
+.qr-slot h3{margin:0 0 8px;font-size:16px}
+.qr-slot .btns .btn{min-height:48px;font-size:15px}
+.qr-show{position:fixed;inset:0;z-index:110;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:calc(var(--sat) + 20px) 20px calc(var(--sab) + 20px);text-align:center}
+.qr-show h2{margin:0;font-size:28px;color:var(--pri-d)}
+.qr-show p{margin:0;font-size:19px;color:#33414a}
+.qr-show img{width:min(62vh,80vw);height:min(62vh,80vw);object-fit:contain;image-rendering:pixelated}
+.qr-show .btn{min-width:240px;margin-top:6px}
 #btn-survey{min-height:52px;padding:0 18px;border-radius:12px;background:#fff;color:var(--pri-d);font-weight:700}
 #tabs{display:flex;background:#fff;border-bottom:1px solid var(--line);padding:0 calc(var(--sar) + 8px) 0 calc(var(--sal) + 8px)}
 #tabs button{flex:1;min-height:52px;font-weight:700;color:var(--sub);border-bottom:4px solid transparent;position:relative}
@@ -215,6 +228,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
       <span class="v" id="st-backup-time">未実施</span>
       <span class="sub" id="st-backup-sub"></span>
     </button>
+    <button type="button" id="btn-qr" hidden>資料QR</button>
   </header>
   <nav id="tabs" role="tablist">
     <button type="button" role="tab" data-tab="input" aria-selected="true">入力</button>
@@ -356,6 +370,12 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
         <div><div style="font-weight:700;font-size:15px;margin-bottom:4px">文字の種類</div>
           <div class="seg" id="set-fid-charset"><button type="button" data-v="digits">数字のみ</button><button type="button" data-v="alnum">英数字</button></div></div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>資料ダウンロードのQRコード</h2>
+      <p class="note">保存したあとに自動で表示されるQRコードです。開催日（day0／day1）に応じて切り替わり、日程外の日はday0→day1の順に表示します。DAY1はアプリ標準（全台共通）が入っています。DAY0は社内向けURLのため、各端末で画像を登録してください（この端末内だけに保存されます）。</p>
+      <div class="qr-set" id="qr-set"></div>
     </div>
 
     <div class="card">

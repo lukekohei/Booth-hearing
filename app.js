@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const APP_VERSION = '3.4.0';
+const APP_VERSION = '3.6.0';
 
 /* =====================================================================
  * 配信時の初期設定（確定版の質問項目）
@@ -673,7 +673,8 @@ async function onSave() {
     } else {
       const rec = await insertRecord(data);
       records.push(rec);
-      toast('保存しました'); // 件数や連番は表示しない（来場者に見えるため）
+      // QRが登録されていればQR画面を出す（その場合トーストは出さない）。件数や連番は表示しない
+      if (currentQr()) showQr(true); else toast('保存しました');
     }
     resetForm();
     refreshAll();
@@ -792,6 +793,7 @@ function refreshStatus() {
   ds.querySelector('.v').textContent = day ? day.toUpperCase() : '日程外';
   ds.querySelector('.sub').textContent = `${new Date().getMonth() + 1}/${new Date().getDate()}（${wd}）`;
   ds.classList.toggle('off', !day);
+  if (typeof renderQrState === 'function' && $('#btn-qr')) renderQrState();
   $('#btn-undo').disabled = !records.length;
   $('#set-count').textContent = `${records.length}件（${records.reduce((n, r) => n + vidsOf(r).length, 0)}名）`;
   $('#set-unexported').textContent = `${un.length}件`;
@@ -1141,12 +1143,106 @@ function bindEvents() {
   $('#btn-reset-settings').addEventListener('click', onResetSettings);
   $('#btn-save-device').addEventListener('click', onSaveDevice);
   $('#btn-wipe').addEventListener('click', onWipe);
+  $('#btn-qr').addEventListener('click', () => showQr(false));
+  buildQrSettings();
   $('#btn-persist').addEventListener('click', async () => { await checkPersist(true); refreshStorageInfo(); });
   $('#btn-check-update').addEventListener('click', onCheckUpdate);
   $('#btn-apply-update').addEventListener('click', onApplyUpdate);
   document.querySelectorAll('#set-fid-charset button').forEach((b) => b.addEventListener('click', () => { fidCharsetDraft = b.dataset.v; renderCharsetSeg(); }));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStatus(); });
   setInterval(refreshStatus, 30000);
+}
+
+/* ------------------------------ 資料ダウンロードQR ------------------------------ */
+const QR_DAYS = ['day0', 'day1'];
+const qrImgs = { day0: '', day1: '' }; // この端末で登録した画像（登録があればアプリ標準より優先）
+/* アプリ標準のQR画像（全台共通。GitHubに置くため公開URLのものだけ入れること） */
+const DEFAULT_QR = { day0: '', day1: 'qr/day1.png' };
+const qrSrc = (k) => qrImgs[k] || DEFAULT_QR[k] || '';
+function currentQr() {
+  const d = dayOf(Date.now());
+  if (d && qrSrc(d)) return { day: d, src: qrSrc(d) };
+  if (d) return null; // 開催日なのにその日のQRが未登録
+  for (const k of QR_DAYS) if (qrSrc(k)) return { day: k, src: qrSrc(k) }; // 日程外（テスト）
+  return null;
+}
+function renderQrState() {
+  $('#btn-qr').hidden = !currentQr();
+}
+/* 保存直後（auto=true）または「資料QR」ボタンから、全画面でQRを表示 */
+function showQr(auto) {
+  const q = currentQr();
+  if (!q) { if (!auto) alertDlg('QRコードが未登録です', '設定画面の「資料ダウンロードのQRコード」で画像を登録してください。'); return; }
+  const ov = el('div', { class: 'qr-show', role: 'dialog', 'aria-modal': 'true' },
+    el('h2', { text: auto ? 'ご協力ありがとうございました' : '資料ダウンロード' }),
+    el('p', { text: 'スマートフォンのカメラでQRコードを読み取ると、資料をダウンロードいただけます' }),
+    el('img', { src: q.src, alt: `資料ダウンロードのQRコード（${q.day}）` }),
+    el('button', { type: 'button', class: 'btn pri', text: '閉じる', onclick: () => ov.remove() })
+  );
+  $('#modal-root').append(ov);
+}
+function buildQrSettings() {
+  const box = $('#qr-set');
+  box.textContent = '';
+  for (const k of QR_DAYS) {
+    const pv = el('div', { class: 'pv' });
+    if (qrSrc(k)) pv.append(el('img', { src: qrSrc(k), alt: `${k}のQRコード` })); else pv.textContent = '未登録';
+    const status = qrImgs[k] ? 'この端末で登録した画像' : (DEFAULT_QR[k] ? 'アプリ標準（全台共通）' : '未登録 — この端末で画像を登録してください');
+    const file = el('input', { type: 'file', accept: 'image/*', hidden: true });
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      try {
+        const url = await readImage(f);
+        await metaSet('qr_' + k, url);
+        qrImgs[k] = url;
+        buildQrSettings(); renderQrState();
+        toast(`${k.toUpperCase()}のQRコードを登録しました`);
+      } catch (e) { alertDlg('画像を読み込めませんでした', e.message || String(e)); }
+    });
+    const btnSel = el('button', { type: 'button', class: 'btn pri', text: qrSrc(k) ? 'この端末で変更' : '画像を選択', onclick: () => file.click() });
+    const btnTest = el('button', { type: 'button', class: 'btn', text: '表示テスト', disabled: !qrSrc(k) || null, onclick: () => {
+      const keep = qrImgs; const d = k;
+      const ov = el('div', { class: 'qr-show' }, el('h2', { text: `${d.toUpperCase()} の表示テスト` }), el('img', { src: qrSrc(d), alt: '' }),
+        el('button', { type: 'button', class: 'btn pri', text: '閉じる', onclick: () => ov.remove() }));
+      $('#modal-root').append(ov);
+    } });
+    const btnDel = el('button', { type: 'button', class: 'btn ghost-dng', text: '登録を削除', hidden: !qrImgs[k] || null, onclick: async () => {
+      if (!(await confirmDlg(`${k.toUpperCase()}のQRコードの登録を削除しますか？`, DEFAULT_QR[k] ? 'この端末で登録した画像を削除し、アプリ標準のQRコードに戻します。' : 'この端末で登録した画像を削除します（記録データには影響しません）。', '削除する', 'dng'))) return;
+      await metaSet('qr_' + k, ''); qrImgs[k] = '';
+      buildQrSettings(); renderQrState();
+    } });
+    box.append(el('div', { class: 'qr-slot' }, pv, el('div', {},
+      el('h3', { text: `${k.toUpperCase()}（${Object.keys(EVENT_DAYS).find((x) => EVENT_DAYS[x] === k).slice(5).replace('-', '/')}）` }),
+      el('p', { class: 'hint', text: status }),
+      el('div', { class: 'btns' }, btnSel, btnTest, btnDel), file)));
+  }
+}
+/* 画像を読み込み、大きすぎる場合は縮小して data URL にする（QRのドットがぼけないよう補間なし） */
+function readImage(f) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\//.test(f.type || 'image/')) { reject(new Error('画像ファイルを選んでください')); return; }
+    const fr = new FileReader();
+    fr.onerror = () => reject(fr.error || new Error('読み込みに失敗しました'));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('画像として読み込めませんでした'));
+      img.onload = () => {
+        const max = 1200;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        if (scale === 1 && fr.result.length < 1500000) { resolve(fr.result); return; }
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+        const g = c.getContext('2d');
+        g.imageSmoothingEnabled = false;
+        g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(f);
+  });
 }
 
 async function init() {
@@ -1165,6 +1261,8 @@ async function init() {
   deviceId = (await metaGet('deviceId')) || '';
   lastExport = (await metaGet('lastExport')) || null;
   lastStaff = (await metaGet('lastStaff')) || '';
+  for (const k of QR_DAYS) qrImgs[k] = (await metaGet('qr_' + k)) || '';
+  renderQrState();
   if (lastStaff && !settings.staff.includes(lastStaff)) lastStaff = '';
   await loadRecords();
   form = emptyForm();

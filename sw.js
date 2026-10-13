@@ -3,7 +3,7 @@
  * - 外部への通信は行わない（同一オリジンのGETのみ処理）
  * - アプリを更新したら、必ず下の VERSION を変更して配信すること
  */
-const VERSION = '3.4.0';
+const VERSION = '3.6.0';
 const CACHE = 'booth-hearing-' + VERSION;
 const ASSETS = [
   './',
@@ -13,7 +13,8 @@ const ASSETS = [
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-maskable-512.png'
+  './icons/icon-maskable-512.png',
+  './qr/day1.png'
 ];
 
 self.addEventListener('install', (event) => {
