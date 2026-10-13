@@ -78,6 +78,8 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .chips.multi .chip[aria-pressed="true"]::before{content:"✓ "}
 .chip.legacy{border-style:dashed}
 .chip.legacy::after{content:"（旧）";font-size:12px}
+.chip.feat{border:3px solid #2563eb;background:#eef4ff;color:#1e3a8a}
+.chip.feat[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff}
 .chip.hot{border-color:#f3b08f;color:var(--hot)}
 .chip.hot[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
 .txt{width:100%;min-height:52px;padding:8px 14px;border:2px solid var(--line);border-radius:12px;background:#fff}
@@ -233,21 +235,16 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
       <div class="chips" id="grp-purpose"></div>
     </div>
 
-    <div class="field" id="fld-role">
-      <div class="label">2. お客様の立場<small>1つ選択</small></div>
-      <div class="chips" id="grp-role"></div>
-    </div>
-
     <div class="field" id="fld-deal">
-      <div class="label">3-1. 取引・案件状況<small>複数選択可</small></div>
+      <div class="label">2-1. 取引・案件状況<small>複数選択可</small></div>
       <div>
         <div class="deal" id="grp-deal"></div>
-        <p class="hint w">商材名・案件名のみ記入。案件の具体的な内容や他社の社名は書かないでください</p>
+        <p class="hint w">商材名・領域のみ記入。案件の具体的な内容や他社の社名は書かないでください</p>
       </div>
     </div>
 
     <div class="field" id="fld-ctcContact">
-      <div class="label">3-2. CTC社内担当部署・担当者<small>自由記入</small></div>
+      <div class="label">2-2. CTC社内担当部署・担当者<small>自由記入</small></div>
       <div>
         <input type="text" id="in-ctcContact" class="txt" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="部署名・担当者名" aria-label="CTC社内担当部署・担当者">
         <p class="hint">CTC側の部署・担当者のみ（お客様の社名・氏名は書かない）</p>
@@ -255,7 +252,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
     </div>
 
     <div class="field" id="fld-themes">
-      <div class="label">4. 関心テーマ<small>複数選択可・当てはまらない場合は会話メモへ</small></div>
+      <div class="label">3. 関心テーマ<small>複数選択可・当てはまらない場合は会話メモへ</small></div>
       <div class="chips multi" id="grp-themes"></div>
     </div>
 
@@ -268,12 +265,12 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
     </div>
 
     <div class="field" id="fld-actions">
-      <div class="label">5. CTCが今後取るべき対応<small>複数選択可</small></div>
+      <div class="label">4. CTCが今後取るべき対応<small>複数選択可</small></div>
       <div class="chips multi" id="grp-actions"></div>
     </div>
 
     <div class="field" id="fld-mgmtNo">
-      <div class="label">6. 管理番号<small>任意・ブースの通し番号など</small></div>
+      <div class="label">5. 管理番号<small>任意・ブースの通し番号など</small></div>
       <div class="mgmt">
         <input type="text" id="in-mgmtNo" class="txt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="管理番号">
         <button type="button" class="btn" id="btn-mgmt-next" hidden></button>
@@ -281,8 +278,13 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
     </div>
 
     <div class="field stack" id="fld-itIssue">
-      <div class="label">7. 現在、社内のITにまつわるサポートで最も課題と感じていることは何ですか？<small>1つ選択</small></div>
+      <div class="label">6. 現在、社内のITにまつわるサポートで最も課題と感じていることは何ですか？<small>1つ選択</small></div>
       <div class="chips" id="grp-itIssue"></div>
+    </div>
+  
+    <div class="field" id="fld-role">
+      <div class="label">7. お客様の立場<small>1つ選択</small></div>
+      <div class="chips" id="grp-role"></div>
     </div>
   </section>
 
@@ -319,7 +321,7 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 
     <div class="card">
       <h2>選択肢</h2>
-      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。「3-1. 取引・案件状況」の選択肢は固定です。</p>
+      <p class="note">1行に1つ入力します。保存済みの記録は選択肢の文字列そのもので残るため、後から変更しても過去の記録は変わりません。「2-1. 取引・案件状況」の選択肢は固定です。関心テーマは行頭に ★ を付けると青枠で表示されます。</p>
       <div class="set-grid cols" id="set-lists"></div>
     </div>
 

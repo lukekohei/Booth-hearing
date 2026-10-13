@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '3.0.0';
 
 /* =====================================================================
  * 配信時の初期設定（確定版の質問項目）
@@ -18,12 +18,21 @@ const DEFAULT_CONFIG = {
   purpose: ['情報収集', '課題解決', '導入検討', '挨拶'],
   role: ['決裁権あり', '選定担当', '現場実務', 'その他'],
   themes: [
+    // ↓ CTCFC独自の重点テーマ（青枠で先頭に表示）
+    'AIサービスデスク・生成AI活用',
+    'IT運用BPO・ヘルプデスク運営',
+    'ナレッジ整備・FAQ・RAG構築',
+    '課題整理・アセスメント',
+    // ↓ その他のテーマ
     'AI FinOps・トークンコスト最適化',
     'AI基盤／GPU',
     'AI駆動開発',
     'ガバナンス',
     'エージェントAI',
-    'コンサル・育成',
+    'コンサル・育成'
+  ],
+  // 関心テーマのうち青枠で表示するもの（設定画面では行頭の ★ で指定）
+  themesFeatured: [
     'AIサービスデスク・生成AI活用',
     'IT運用BPO・ヘルプデスク運営',
     'ナレッジ整備・FAQ・RAG構築',
@@ -52,29 +61,28 @@ const DEFAULT_CONFIG = {
 /* 設定画面で編集できる選択肢 */
 const LIST_SETTINGS = [
   { key: 'purpose', label: '1. 来場目的' },
-  { key: 'role', label: '2. お客様の立場' },
-  { key: 'themes', label: '4. 関心テーマ' },
-  { key: 'actions', label: '5. CTCが今後取るべき対応', note: '「ホットリード」を含む選択肢は強調表示' },
-  { key: 'itIssue', label: '7. ITサポートの最大課題' },
+  { key: 'themes', label: '3. 関心テーマ', note: '行頭に ★ を付けた項目は青枠で表示' },
+  { key: 'actions', label: '4. CTCが今後取るべき対応', note: '「ホットリード」を含む選択肢は強調表示' },
+  { key: 'itIssue', label: '6. ITサポートの最大課題' },
+  { key: 'role', label: '7. お客様の立場' },
   { key: 'staff', label: '対応担当者の名簿', note: '空欄なら入力欄を表示しない', allowEmpty: true }
 ];
 
-/* 3-1. 取引・案件状況（固定。noteがある選択肢は選ぶと記入欄が出る） */
+/* 2-1. 取引・案件状況（固定。noteがある選択肢は選ぶと記入欄が出る。同じgroupの選択肢はどちらか1つ） */
 const DEAL_OPTIONS = [
-  { label: 'CTC取引有（進行中案件有）', note: '商材名', col: 'CTC取引有(進行中案件有)_商材名' },
-  { label: 'CTC取引有（進行中案件無）', note: '商材名', col: 'CTC取引有(進行中案件無)_商材名' },
-  { label: '他社案件あり', note: '商材・領域', col: '他社案件_内容' },
-  { label: 'なし', exclusive: true }
+  { label: 'CTC取引有', note: '商材名', col: 'CTC取引有_商材名', group: 'ctc' },
+  { label: 'CTC取引無', group: 'ctc' },
+  { label: '他社案件有', note: '商材・領域', col: '他社案件_内容' }
 ];
 const isHot = (label) => String(label).includes('ホットリード');
 const BACKUP_WARN_MS = 2 * 60 * 60 * 1000;
 
 const CSV_HEADERS = [
   'レコードID', '端末ID', '連番', '保存時刻', '来場者ID', '同時ヒアリング人数', '対応担当者',
-  '来場目的', 'お客様の立場', '取引・案件状況',
+  '来場目的', '取引・案件状況',
   ...DEAL_OPTIONS.filter((d) => d.col).map((d) => d.col),
   'CTC社内担当部署・担当者', '関心テーマ', '会話メモ', 'CTCが今後取るべき対応', 'ホットリード',
-  '管理番号', 'ITサポートの最大課題', '更新時刻'
+  '管理番号', 'ITサポートの最大課題', 'お客様の立場', '更新時刻'
 ];
 const DB_NAME = 'booth-hearing';
 const DB_VERSION = 1;
@@ -311,7 +319,8 @@ function renderGroup(key) {
   for (const v of sel) if (!all.includes(v)) all.push(v);
   box.textContent = '';
   for (const opt of all) {
-    const cls = 'chip' + (opts.includes(opt) ? '' : ' legacy') + (isHot(opt) ? ' hot' : '');
+    const feat = key === 'themes' && (settings.themesFeatured || []).includes(opt);
+    const cls = 'chip' + (opts.includes(opt) ? '' : ' legacy') + (isHot(opt) ? ' hot' : '') + (feat ? ' feat' : '');
     const b = el('button', { type: 'button', class: cls, 'aria-pressed': String(sel.includes(opt)), text: opt });
     b.addEventListener('click', () => {
       if (g.multi) {
@@ -343,12 +352,11 @@ function renderDeal() {
       if (on) {
         form.deal = form.deal.filter((x) => x !== d.label);
         delete form.dealNotes[d.label];
-      } else if (d.exclusive) {
-        form.deal = [d.label];
-        form.dealNotes = {};
       } else {
-        const ex = DEAL_OPTIONS.filter((x) => x.exclusive).map((x) => x.label);
-        form.deal = form.deal.filter((x) => !ex.includes(x)).concat(d.label);
+        // 同じグループ（CTC取引有／無）はどちらか1つ
+        const same = d.group ? DEAL_OPTIONS.filter((x) => x.group === d.group && x.label !== d.label).map((x) => x.label) : [];
+        form.deal = form.deal.filter((x) => !same.includes(x)).concat(d.label);
+        for (const x of same) delete form.dealNotes[x];
       }
       renderDeal();
       saveDraft();
@@ -734,11 +742,11 @@ function buildCsv(list) {
     const ids = vidsOf(r);
     const notes = r.dealNotes || {};
     const common = [
-      r.staff || '', r.purpose || '', r.role || '', (r.deal || []).join(';'),
+      r.staff || '', r.purpose || '', (r.deal || []).join(';'),
       ...DEAL_OPTIONS.filter((d) => d.col).map((d) => notes[d.label] || ''),
       r.ctcContact || '', (r.themes || []).join(';'), r.memo || '', (r.actions || []).join(';'),
       (r.actions || []).some(isHot) ? '○' : '',
-      r.mgmtNo || '', r.itIssue || '', r.updatedAt || ''
+      r.mgmtNo || '', r.itIssue || '', r.role || '', r.updatedAt || ''
     ];
     for (const v of (ids.length ? ids : [''])) {
       rows.push([r.id, r.deviceId, r.seq, r.savedAt, v, ids.length, ...common].map(csvCell).join(','));
@@ -838,7 +846,10 @@ function buildSettingsLists() {
 }
 function fillSettings() {
   $('#set-device').value = deviceId;
-  for (const s of LIST_SETTINGS) $('#set-list-' + s.key).value = settings[s.key].join('\n');
+  for (const s of LIST_SETTINGS) {
+    const feat = s.key === 'themes' ? (settings.themesFeatured || []) : [];
+    $('#set-list-' + s.key).value = settings[s.key].map((x) => (feat.includes(x) ? '★' : '') + x).join('\n');
+  }
   $('#set-fid-min').value = settings.visitorId.minLen;
   $('#set-fid-max').value = settings.visitorId.maxLen;
   fidCharsetDraft = settings.visitorId.charset;
@@ -853,7 +864,18 @@ async function onSaveSettings() {
   const next = {};
   const errs = [];
   for (const s of LIST_SETTINGS) {
-    next[s.key] = lines($('#set-list-' + s.key).value);
+    const raw = lines($('#set-list-' + s.key).value);
+    if (s.key === 'themes') {
+      next.themes = [];
+      next.themesFeatured = [];
+      for (const l of raw) {
+        const star = /^[★☆*＊]/.test(l);
+        const v = l.replace(/^[★☆*＊]\s*/, '');
+        if (!v || next.themes.includes(v)) continue;
+        next.themes.push(v);
+        if (star) next.themesFeatured.push(v);
+      }
+    } else next[s.key] = raw;
     if (!s.allowEmpty && !next[s.key].length) errs.push(`「${s.label}」を1つ以上入力してください`);
   }
   const minLen = parseInt($('#set-fid-min').value, 10);
