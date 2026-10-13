@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.3.0';
 
 /* =====================================================================
  * 配信時の初期設定（確定版の質問項目）
@@ -54,8 +54,8 @@ const DEFAULT_CONFIG = {
     'AI・ITSMを活用しきれていない',
     'その他'
   ],
-  visitorId: { minLen: 6, maxLen: 6, charset: 'digits' }, // charset: 'digits' | 'alnum'
-  surveyUrl: '' // 事務局アンケートURL（空なら非表示）
+  visitorId: { minLen: 7, maxLen: 7, charset: 'digits' }, // charset: 'digits' | 'alnum'
+  boothNo: '' // ブース番号（事務局提出用。CSVの「ブース番号」列に入る）
 };
 
 /* 設定画面で編集できる選択肢 */
@@ -80,16 +80,65 @@ const TEMPS = [
   { v: 'B', hint: '関心あり' },
   { v: 'C', hint: '情報収集程度' }
 ];
+/* 開催日（端末の日付から自動判定。記録とCSVに「開催日区分」として残る） */
+const EVENT_DAYS = {
+  '2026-10-15': 'day0',
+  '2026-10-16': 'day1'
+};
+const ymd = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const dayOf = (ms) => EVENT_DAYS[ymd(ms)] || '';
+const recDay = (r) => r.day !== undefined ? r.day : dayOf(r.savedMs);
 const isHot = (label) => String(label).includes('ホットリード');
 const BACKUP_WARN_MS = 2 * 60 * 60 * 1000;
 
-const CSV_HEADERS = [
-  'レコードID', '端末ID', '連番', '保存時刻', '来場者ID', '同時ヒアリング人数', '対応担当者',
-  '来場目的', '取引・案件状況',
-  ...DEAL_OPTIONS.filter((d) => d.col).map((d) => d.col),
-  'CTC社内担当部署・担当者', '関心テーマ', '会話メモ', 'CTCが今後取るべき対応', 'ホットリード', '温度感',
-  '管理番号', 'ITサポートの最大課題', 'お客様の立場', '更新時刻'
+/* ---------------------------------------------------------------
+ * CSV の列定義（1行＝来場者ID 1名）
+ * 前半は事務局「展示ヒアリングシート」と同じ並び、後半【社内】はCTCFC独自項目。
+ * --------------------------------------------------------------- */
+/* 事務局シートにある選択肢（それ以外の選択は【社内】列へ振り分け） */
+const JIMU_THEMES = ['AI FinOps・トークンコスト最適化', 'AI基盤／GPU', 'AI駆動開発', 'ガバナンス', 'エージェントAI', 'コンサル・育成'];
+const JIMU_ACTIONS = ['訪問・提案', '資料送付', '御礼メールのみ'];
+const TIME_SLOTS = [
+  { until: 12 * 60, label: '開始～12:00' },
+  { until: 14 * 60, label: '12:00～14:00' },
+  { until: 16 * 60, label: '14:00～16:00' },
+  { until: 24 * 60, label: '16:00以降' }
 ];
+const timeSlot = (ms) => { const d = new Date(ms); const m = d.getHours() * 60 + d.getMinutes(); return (TIME_SLOTS.find((t) => m < t.until) || TIME_SLOTS[3]).label; };
+const mdOf = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const join = (a) => (a || []).join(';');
+const CSV_COLUMNS = [
+  // ===== 事務局提出項目（シートの並び） =====
+  ['ブース番号', (r) => r.boothNo || settings.boothNo || ''],
+  ['対応日', (r) => mdOf(r.savedMs)],
+  ['時間帯', (r) => timeSlot(r.savedMs)],
+  ['対応者', (r) => r.staff || ''],
+  ['登録ID', (r, v) => v],
+  ['1.来場目的', (r) => r.purpose || ''],
+  ['2.お客様の立場', (r) => r.role || ''],
+  ['3.取引・案件状況', (r) => join(r.deal)],
+  ['3.CTC取引_商材名', (r) => (r.dealNotes || {})['CTC取引有'] || ''],
+  ['3.他社案件_内容', (r) => (r.dealNotes || {})['他社案件有'] || ''],
+  ['CTC社内担当部署・担当者', (r) => r.ctcContact || ''],
+  ['4.関心テーマ', (r) => join((r.themes || []).filter((t) => JIMU_THEMES.includes(t)))],
+  ['会話メモ', (r) => r.memo || ''],
+  ['5.CTCが今後取るべき対応', (r) => join((r.actions || []).filter((a) => JIMU_ACTIONS.includes(a)))],
+  ['5.早期フォロー要（ホットリード）', (r) => ((r.actions || []).some(isHot) ? '○' : '')],
+  ['管理番号', (r) => r.mgmtNo || ''],
+  // ===== 【社内】CTCFC独自項目 =====
+  ['【社内】温度感', (r) => r.temp || ''],
+  ['【社内】関心テーマ（CTCFC重点）', (r) => join((r.themes || []).filter((t) => !JIMU_THEMES.includes(t)))],
+  ['【社内】今後の対応（追加項目）', (r) => join((r.actions || []).filter((a) => !JIMU_ACTIONS.includes(a) && !isHot(a)))],
+  ['【社内】ITサポートの最大課題', (r) => r.itIssue || ''],
+  ['【社内】開催日区分', (r) => recDay(r) || '日程外'],
+  ['【社内】同時ヒアリング人数', (r, v, ids) => ids.length],
+  ['【社内】レコードID', (r) => r.id],
+  ['【社内】端末ID', (r) => r.deviceId],
+  ['【社内】連番', (r) => r.seq],
+  ['【社内】保存時刻', (r) => r.savedAt],
+  ['【社内】更新時刻', (r) => r.updatedAt || '']
+];
+
 const DB_NAME = 'booth-hearing';
 const DB_VERSION = 1;
 const DRAFT_KEY = 'booth-hearing-draft-v2';
@@ -238,7 +287,7 @@ function insertRecord(data) {
       rec = Object.assign({ v: 2 }, data, {
         id: `${deviceId}-${pad(seq, 4)}`,
         deviceId, seq,
-        savedAt: localISO(now), savedMs: now.getTime(),
+        savedAt: localISO(now), savedMs: now.getTime(), day: dayOf(now.getTime()), boothNo: settings.boothNo || '',
         updatedAt: '', updatedMs: 0
       });
       t.objectStore('records').add(rec); // IDが重複した場合は失敗し、トランザクションごと取り消される
@@ -700,7 +749,7 @@ function renderList() {
     const hot = (r.actions || []).some(isHot);
     const acts = (r.actions || []).filter((a) => !isHot(a));
     const row = el('button', { type: 'button', class: 'row' + (hot ? ' hot' : ''), 'aria-label': `${ids.join('、')} を編集` },
-      el('span', { class: 't', text: shortTime(r.savedMs) }),
+      el('span', { class: 't' }, recDay(r) ? el('b', { class: 'dayb', text: recDay(r) }) : null, shortTime(r.savedMs)),
       el('span', { class: 'fid' }, r.temp ? el('span', { class: 'tb ' + r.temp, text: r.temp }) : null, ids.join('、'), ids.length > 1 ? el('small', { text: `${ids.length}名` }) : null,
         r.updatedMs ? el('span', { class: 'edited', text: '編集済' }) : null),
       el('span', { class: 'sub', text: [r.purpose, r.role].filter(Boolean).join(' / ') || '—' }),
@@ -735,9 +784,13 @@ function refreshStatus() {
     ? `⚠ ${lastExport ? '2時間以上経過' : '未バックアップ'}・未書き出し${un.length}件 — タップしてCSV書き出し`
     : (un.length ? `未書き出し ${un.length}件 — タップで書き出し` : '未書き出しなし');
   $('#st-backup').classList.toggle('warn', warn);
-  $('#tab-list-count').textContent = `(${records.length})`;
+  const day = dayOf(Date.now());
+  const ds = $('#st-day');
+  const wd = '日月火水木金土'[new Date().getDay()];
+  ds.querySelector('.v').textContent = day ? day.toUpperCase() : '日程外';
+  ds.querySelector('.sub').textContent = `${new Date().getMonth() + 1}/${new Date().getDate()}（${wd}）`;
+  ds.classList.toggle('off', !day);
   $('#btn-undo').disabled = !records.length;
-  $('#btn-survey').hidden = !settings.surveyUrl;
   $('#set-count').textContent = `${records.length}件（${records.reduce((n, r) => n + vidsOf(r).length, 0)}名）`;
   $('#set-unexported').textContent = `${un.length}件`;
   $('#set-lastexport').textContent = lastExport
@@ -760,23 +813,12 @@ function csvCell(v) {
 }
 /* 来場者IDごとに1行（同じ記録に複数名いる場合は同じ内容の行が人数分並ぶ） */
 function buildCsv(list) {
-  const rows = [CSV_HEADERS.map(csvCell).join(',')];
+  const rows = [CSV_COLUMNS.map((c) => csvCell(c[0])).join(',')];
   for (const r of list.slice().sort((a, b) => a.seq - b.seq)) {
     const ids = vidsOf(r);
-    const notes = r.dealNotes || {};
-    const common = [
-      r.staff || '', r.purpose || '', (r.deal || []).join(';'),
-      ...DEAL_OPTIONS.filter((d) => d.col).map((d) => notes[d.label] || ''),
-      r.ctcContact || '', (r.themes || []).join(';'), r.memo || '', (r.actions || []).join(';'),
-      (r.actions || []).some(isHot) ? '○' : '',
-      r.temp || '',
-      r.mgmtNo || '', r.itIssue || '', r.role || '', r.updatedAt || ''
-    ];
-    for (const v of (ids.length ? ids : [''])) {
-      rows.push([r.id, r.deviceId, r.seq, r.savedAt, v, ids.length, ...common].map(csvCell).join(','));
-    }
+    for (const v of (ids.length ? ids : [''])) rows.push(CSV_COLUMNS.map((c) => csvCell(c[1](r, v, ids))).join(','));
   }
-  return '﻿' + rows.join('\r\n') + '\r\n';
+  return '\uFEFF' + rows.join('\r\n') + '\r\n';
 }
 function makeCsvFile(list, kind, stampMs) {
   const d = new Date(stampMs);
@@ -878,7 +920,7 @@ function fillSettings() {
   $('#set-fid-max').value = settings.visitorId.maxLen;
   fidCharsetDraft = settings.visitorId.charset;
   renderCharsetSeg();
-  $('#set-survey').value = settings.surveyUrl || '';
+  $('#set-booth').value = settings.boothNo || '';
   refreshStatus();
 }
 function renderCharsetSeg() {
@@ -904,12 +946,11 @@ async function onSaveSettings() {
   }
   const minLen = parseInt($('#set-fid-min').value, 10);
   const maxLen = parseInt($('#set-fid-max').value, 10);
-  const survey = $('#set-survey').value.trim();
+  const booth = $('#set-booth').value.trim();
   if (!(minLen >= 1 && minLen <= 30 && maxLen >= 1 && maxLen <= 30 && minLen <= maxLen)) errs.push('桁数は1〜30で、最小≦最大にしてください');
-  if (survey && !/^https:\/\/\S+$/i.test(survey)) errs.push('アンケートURLは https:// で始まる形式にしてください');
   if (errs.length) { alertDlg('設定を保存できません', errs.join('\n')); return; }
   next.visitorId = { minLen, maxLen, charset: fidCharsetDraft };
-  next.surveyUrl = survey;
+  next.boothNo = booth;
   // 初期値と同じ項目は上書き扱いにしない（配信側の初期値変更を反映させるため）
   const ov = {};
   for (const k of Object.keys(next)) if (JSON.stringify(next[k]) !== JSON.stringify(DEFAULT_CONFIG[k])) ov[k] = next[k];
@@ -928,7 +969,7 @@ async function fixStaff() {
   if (!editingId && form.staff && !settings.staff.includes(form.staff)) form.staff = '';
 }
 async function onResetSettings() {
-  if (!(await confirmDlg('初期値に戻しますか？', '選択肢・来場者IDの形式・アンケートURLを、配信時の初期値に戻します。\n（端末ID・保存済みの記録はそのままです）', '初期値に戻す'))) return;
+  if (!(await confirmDlg('初期値に戻しますか？', '選択肢・来場者IDの形式・ブース番号を、配信時の初期値に戻します。\n（端末ID・保存済みの記録はそのままです）', '初期値に戻す'))) return;
   await metaSet('settings', {});
   overrides = {};
   applySettings();
@@ -1102,18 +1143,6 @@ function bindEvents() {
   $('#btn-check-update').addEventListener('click', onCheckUpdate);
   $('#btn-apply-update').addEventListener('click', onApplyUpdate);
   document.querySelectorAll('#set-fid-charset button').forEach((b) => b.addEventListener('click', () => { fidCharsetDraft = b.dataset.v; renderCharsetSeg(); }));
-  $('#btn-survey').addEventListener('click', () => {
-    const url = settings.surveyUrl;
-    if (!url) return;
-    dialog({
-      title: '事務局アンケートを開きますか？',
-      message: '外部のページが開きます（通信が必要です）。\n終わったらこのアプリに戻ってください。',
-      buttons: [
-        { label: 'キャンセル', value: false },
-        { label: '開く', value: true, kind: 'pri', onClick: () => { window.open(url, '_blank', 'noopener'); } }
-      ]
-    });
-  });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStatus(); });
   setInterval(refreshStatus, 30000);
 }

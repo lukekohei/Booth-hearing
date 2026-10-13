@@ -46,6 +46,9 @@ input,textarea{font:inherit;font-size:18px;color:var(--ink)}
 #st-backup .sub{font-size:13px;opacity:.9}
 #st-backup.warn{background:#ffb020;color:#2b1800;border-color:#fff;animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 5px rgba(255,176,32,.45)}}
+#st-day .sub{font-size:13px;opacity:.9}
+#st-day.off{background:#ffb020;color:#2b1800}
+.dayb{display:inline-block;font-size:11px;font-weight:800;background:var(--pri-l);color:var(--pri-d);border-radius:5px;padding:0 5px;margin-right:5px;text-transform:uppercase;vertical-align:1px}
 #btn-survey{min-height:52px;padding:0 18px;border-radius:12px;background:#fff;color:var(--pri-d);font-weight:700}
 #tabs{display:flex;background:#fff;border-bottom:1px solid var(--line);padding:0 calc(var(--sar) + 8px) 0 calc(var(--sal) + 8px)}
 #tabs button{flex:1;min-height:52px;font-weight:700;color:var(--sub);border-bottom:4px solid transparent;position:relative}
@@ -78,8 +81,8 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 .chips.multi .chip[aria-pressed="true"]::before{content:"✓ "}
 .chip.legacy{border-style:dashed}
 .chip.legacy::after{content:"（旧）";font-size:12px}
-.chip.feat{border:3px solid #2563eb;background:#eef4ff;color:#1e3a8a}
-.chip.feat[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff}
+.chip.feat{border:3px solid #3b82f6;background:#fff;color:#1d4ed8;box-shadow:inset 0 -4px 0 #dbeafe}
+.chip.feat[aria-pressed="true"]{background:#1e3a8a;border-color:#1e3a8a;color:#fff;box-shadow:none}
 .chip.hot{border-color:#f3b08f;color:var(--hot)}
 .chip.hot[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
 .txt{width:100%;min-height:52px;padding:8px 14px;border:2px solid var(--line);border-radius:12px;background:#fff}
@@ -204,17 +207,17 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
 <div id="chrome">
   <header id="topbar">
     <div class="stat"><span class="k">本日の保存</span><span class="v"><span id="st-today">0</span> <small>件</small> <span id="st-today-p">0</span> <small>名</small></span></div>
+    <div class="stat" id="st-day"><span class="k">開催日</span><span class="v">-</span><span class="sub"></span></div>
     <div class="stat"><span class="k">この端末</span><span class="v" id="st-device">-</span></div>
     <button type="button" class="stat" id="st-backup" title="CSV書き出し">
       <span class="k">最終バックアップ（CSV書き出し）</span>
       <span class="v" id="st-backup-time">未実施</span>
       <span class="sub" id="st-backup-sub"></span>
     </button>
-    <button type="button" id="btn-survey" hidden>アンケートを開く</button>
   </header>
   <nav id="tabs" role="tablist">
     <button type="button" role="tab" data-tab="input" aria-selected="true">入力</button>
-    <button type="button" role="tab" data-tab="list" aria-selected="false">保存済み一覧 <span class="count" id="tab-list-count"></span></button>
+    <button type="button" role="tab" data-tab="list" aria-selected="false">保存済み一覧</button>
     <button type="button" role="tab" data-tab="settings" aria-selected="false">設定 <span class="badge" id="tab-settings-badge" hidden>!</span></button>
   </nav>
 </div>
@@ -354,9 +357,9 @@ main{max-width:1100px;margin:0 auto;padding:12px calc(var(--sar) + 16px) calc(va
     </div>
 
     <div class="card">
-      <h2>事務局アンケート</h2>
-      <p class="note">URLを入れると画面上部に「アンケートを開く」ボタンが出ます。空欄なら非表示です。開くには通信が必要です。</p>
-      <div class="set-grid"><label>アンケートURL<input type="url" id="set-survey" placeholder="https://..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label></div>
+      <h2>ブース番号（事務局提出用）</h2>
+      <p class="note">CSVの「ブース番号」列に入ります。保存した時点の番号が記録に残ります。</p>
+      <div class="set-grid"><label>ブース番号<input type="text" id="set-booth" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label></div>
     </div>
 
     <div class="card">
